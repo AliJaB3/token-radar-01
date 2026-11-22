@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { snapshotText } from './snapshot.mjs';
 import { buildBoard, eligible, liveProtocols, parseSnapshot, validateHeldOut, type Protocol, type Snapshot } from '../lib/model.ts';
 
-const snapshot=parseSnapshot(readFileSync(new URL('./fixtures/snapshot.json',import.meta.url),'utf8'));
+const snapshot=parseSnapshot(snapshotText);
 const result=buildBoard(snapshot);
 
 test('scores the sealed snapshot without losing watchlist or eligible records',()=>{

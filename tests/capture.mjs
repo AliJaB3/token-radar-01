@@ -1,5 +1,6 @@
 // Development-only browser checks and screenshots. The production entry has no dependencies.
 import assert from 'node:assert/strict';
+import { snapshotPath, snapshotText } from './snapshot.mjs';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -12,7 +13,7 @@ process.env.TMPDIR=temp;
 const modulePath=process.env.PLAYWRIGHT_MODULE??'/usr/local/lib/node_modules/playwright/index.mjs';
 const { chromium }=await import(modulePath);
 function build(preview=false){
-  const r=spawnSync(process.execPath,['main.ts','--input','tests/fixtures/snapshot.json','--output','out',...(preview?['--preview']:[])],{cwd:root,encoding:'utf8'});
+  const r=spawnSync(process.execPath,['main.ts','--input',snapshotPath,'--output','out',...(preview?['--preview']:[])],{cwd:root,encoding:'utf8'});
   assert.equal(r.status,0,r.stderr);process.stdout.write(r.stdout);
 }
 build(true);
@@ -84,7 +85,7 @@ try{
   assert.equal(await page.locator('#count-watch').innerText(),'40','Official floor count starts at 40');
   await page.locator('#scope').selectOption('watch');
   assert.equal(await page.locator('#rows tr').count(),40,'Official floor filter includes all 40 official records');
-  const officialSlug=JSON.parse(readFileSync(resolve(root,'tests/fixtures/snapshot.json'),'utf8')).watchlist[0];
+  const officialSlug=JSON.parse(snapshotText).watchlist[0];
   const officialRow=page.locator(`#rows tr[data-slug="${officialSlug}"]`);
   assert.equal(await officialRow.locator('.record-pill').innerText(),'WATCHLIST','Official badge starts intact');
   await officialRow.locator('[data-watch]').click();

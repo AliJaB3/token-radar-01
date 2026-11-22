@@ -4,12 +4,15 @@ Independent English-only static research dashboard for the sealed token-radar-01
 
 ## Commands
 
+The authentic kit snapshot is external and must not be copied into this repository. Developer tests and the capture script read `RADAR_SNAPSHOT`, falling back to `/root/.hermes/cache/scratch/token-radar-work/token-radar-01-kit/input/snapshot.json` when unset or empty. They fail with an actionable error if that file is unavailable. To use another kit location, set `RADAR_SNAPSHOT` to its original `input/snapshot.json`.
+
 ```sh
+export RADAR_SNAPSHOT="${RADAR_SNAPSHOT:-/root/.hermes/cache/scratch/token-radar-work/token-radar-01-kit/input/snapshot.json}"
 node tests/model.test.ts
 node tests/output.test.ts
-node main.ts --input tests/fixtures/snapshot.json --output out --preview
+node main.ts --input "$RADAR_SNAPSHOT" --output out --preview
 node tests/capture.mjs
-node main.ts --input tests/fixtures/snapshot.json --output out
+node main.ts --input "$RADAR_SNAPSHOT" --output out
 ```
 
 Open `out/dashboard/index.html` directly from disk. No server or network is needed. The capture script uses an installed Playwright module; set `PLAYWRIGHT_MODULE` if its path differs. It renders and tests the actual generated page offline, creates the three screenshots, closes the browser, and then performs a full build. `--preview` explicitly omits dossier generation; the normal build requires real screenshots and fails if they are missing.
@@ -30,7 +33,7 @@ The displayed board anchor is a median market-cap/TVL ratio from snapshot record
 
 To check whether the core TVL × peer-ratio calibration reconstructs *listed market cap*, token-recorded rows with a token identifier and positive market cap and TVL are assigned by slug before fitting: FNV-1a over the slug's UTF-16 code units, unsigned 32-bit result modulo 5 equals 0 for holdout (nominal 20%). This gives 94 training and 34 held-out comparables. All category and global ratios, including percentile trimming, are fit from training rows only. For each held-out row, predict TVL × category training median when that category has at least five training peers, else TVL × global training median. Compare with two baselines: TVL itself (ratio 1) and TVL × the training-only global peer median. Report mean absolute log10 error, median absolute percentage error (APE), and fraction within a factor of two. Slug cohorts are emitted with the results for auditability; the split is independent of source order and repeatable offline.
 
-Measured results from the checked-in fixture: 34 holdout rows; category/global method MAE 0.7461 log10 units, median APE 93.75%, within 2× 20.59%; global peer-median baseline 0.6628, 86.87%, 32.35%; TVL-equals-market-cap baseline 0.8140, 228.42%, 20.59%. Thus the category/global method underperforms the simpler global peer baseline on this holdout. This is an evaluation of same-date listed market-cap reconstruction only, not a launch-valuation or future-return test. It evaluates the TVL × calibration component; growth and listing-tenure adjustments are assumptions and are not validated here. Listed token market caps are not launch valuations. The sample is small, cross-sectional, selected from protocols with usable token identifiers, positive TVL and positive market cap, and has no launch outcomes, token supply/unlocks, revenue, price history or time series. Do not read these metrics as precision for tokenless candidates.
+Measured results from the authentic kit snapshot: 34 holdout rows; category/global method MAE 0.7461 log10 units, median APE 93.75%, within 2× 20.59%; global peer-median baseline 0.6628, 86.87%, 32.35%; TVL-equals-market-cap baseline 0.8140, 228.42%, 20.59%. Thus the category/global method underperforms the simpler global peer baseline on this holdout. This is an evaluation of same-date listed market-cap reconstruction only, not a launch-valuation or future-return test. It evaluates the TVL × calibration component; growth and listing-tenure adjustments are assumptions and are not validated here. Listed token market caps are not launch valuations. The sample is small, cross-sectional, selected from protocols with usable token identifiers, positive TVL and positive market cap, and has no launch outcomes, token supply/unlocks, revenue, price history or time series. Do not read these metrics as precision for tokenless candidates.
 
 The radar includes 198 records that carry no token identifiers and pass observable product and naming exclusions, including all 40 watchlist records. Parent relationships are absent from the snapshot, so discoveries outside the authoritative watchlist remain provisional. Token-recorded records have their own market-data view.
 

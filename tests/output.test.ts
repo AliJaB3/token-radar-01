@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { snapshotPath } from './snapshot.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
@@ -10,7 +11,7 @@ import { buildDossier } from '../vendor/makefun-board.ts';
 const root=fileURLToPath(new URL('..',import.meta.url));
 const first=resolve(root,'tests/.output-a'), second=resolve(root,'tests/.output-b');
 function run(out:string,preview:boolean){
-  return spawnSync(process.execPath,['main.ts','--input','tests/fixtures/snapshot.json','--output',out,...(preview?['--preview']:[])],{cwd:root,encoding:'utf8'});
+  return spawnSync(process.execPath,['main.ts','--input',snapshotPath,'--output',out,...(preview?['--preview']:[])],{cwd:root,encoding:'utf8'});
 }
 function files(dir:string):string[]{return readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(join(dir,e.name)).map(p=>`${e.name}/${p}`):[e.name]).sort();}
 
