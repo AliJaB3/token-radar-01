@@ -1,0 +1,81 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { buildDossier } from '../vendor/makefun-board.ts';
+
+const root=fileURLToPath(new URL('..',import.meta.url));
+const first=resolve(root,'tests/.output-a'), second=resolve(root,'tests/.output-b');
+function run(out:string,preview:boolean){
+  return spawnSync(process.execPath,['main.ts','--input','tests/fixtures/snapshot.json','--output',out,...(preview?['--preview']:[])],{cwd:root,encoding:'utf8'});
+}
+function files(dir:string):string[]{return readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(join(dir,e.name)).map(p=>`${e.name}/${p}`):[e.name]).sort();}
+
+test('preview outputs are deterministic and carry full matching snapshot data',()=>{
+  try{
+    assert.equal(run(first,true).status,0);assert.equal(run(second,true).status,0);
+    assert.deepEqual(files(first),files(second));
+    for(const f of files(first))assert.deepEqual(readFileSync(join(first,f)),readFileSync(join(second,f)),f);
+    const board=JSON.parse(readFileSync(join(first,'board.json'),'utf8'));
+    const script=readFileSync(join(first,'data.js'),'utf8');
+    const data=JSON.parse(script.slice('window.RADAR_DATA='.length).trim().replace(/;$/,''));
+    assert.deepEqual(data.rows,board.rows);
+    assert.equal(data.watchlist.length,40);assert.equal(data.rows.length,198);
+    assert.ok(data.watchlist.every((slug:string)=>data.rows.some((r:{slug:string})=>r.slug===slug)));
+    assert.deepEqual(data.validation,board.validation);
+    assert.equal(data.validation.train_count+data.validation.holdout_count,128);
+    assert.equal(data.validation.strategy.n,data.validation.holdout_count);
+    assert.ok(data.validation.holdout_slugs.every((slug:string)=>!data.validation.train_slugs.includes(slug)));
+  }finally{rmSync(first,{recursive:true,force:true});rmSync(second,{recursive:true,force:true});}
+});
+
+test('dashboard files respect source and offline constraints',()=>{
+  const paths=files(resolve(root,'dashboard'));
+  assert.ok(paths.includes('index.html'));assert.ok(paths.some(p=>p.endsWith('.js')));assert.ok(paths.some(p=>p.endsWith('.css')));
+  assert.ok(paths.every(p=>p.split('/').every(s=>/^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$/.test(s))));
+  assert.ok(paths.reduce((n,p)=>n+statSync(resolve(root,'dashboard',p)).size,0)<64000);
+  for(const p of paths){const text=readFileSync(resolve(root,'dashboard',p),'utf8');assert.doesNotMatch(text,/(?:https?:\/\/)/,p);}
+});
+
+test('interactive views expose every record and connect detail actions to the full snapshot',()=>{
+  const app=readFileSync(resolve(root,'dashboard/app.js'),'utf8');
+  assert.match(app,/new Map\(\(data\.protocols\|\|\[\]\)\.map\(r=>\[r\.slug,r\]\)\)/);
+  assert.match(app,/const farm=\(ranked\?\.farm_steps\|\|\[\]\)/); // A snapshot protocol has no farm steps; its radar row does.
+  assert.match(app,/panel\.querySelectorAll\('\[data-open\]'\).*openDetail/s);
+  assert.match(app,/\$\('#liq-sort'\)\.addEventListener\('change'/);
+  assert.match(app,/\$\('#launch-sort'\)\.addEventListener\('change'/);
+  assert.doesNotMatch(app,/\.slice\(0,\s*(?:100|120)\)/);
+  assert.doesNotMatch(app,/data\.(?:history|timeseries|price_series)/i);
+  assert.match(app,/Held-out listed market-cap check/);
+  assert.match(app,/board global comparables n=/);
+  assert.match(app,/Not a launch-valuation test/);
+  assert.match(app,/p\.change_7d!=null&&p\.change_7d<=-20/);
+  assert.match(app,/p\.change_7d==null/); // Missing change has its own bucket, never a fabricated series.
+});
+
+test('the vendor is the exact required kit library',()=>{
+  assert.equal(createHash('sha256').update(readFileSync(resolve(root,'vendor/makefun-board.ts'))).digest('hex'),'9ca51b6e5cd84fe46cb0efa61e2ea99365a1fb0e21f2b75e6007f977f0dc326e');
+});
+
+test('a normal build requires real screenshots and matches the canonical dossier',()=>{
+  const shots=files(resolve(root,'screenshots'));
+  if(shots.length>=3){
+    try{
+      const r=run(first,false);
+      assert.equal(r.status,0,r.stderr);
+      assert.equal(files(join(first,'screenshots')).length,3);
+      const expected=buildDossier(first,{text_max_bytes:65536,screenshots:{max:4,max_bytes:524288},dashboard:{max_files:400,max_bytes:4194304}});
+      assert.deepEqual(readFileSync(join(first,'dossier.json')),Buffer.from(expected));
+    }finally{rmSync(first,{recursive:true,force:true});}
+    return;
+  }
+  try{
+    const r=run(first,false);
+    assert.notEqual(r.status,0);assert.match(r.stderr,/Need three real dashboard screenshots/);
+    assert.equal(existsSync(join(first,'dossier.json')),false);
+    assert.throws(()=>buildDossier(first,{text_max_bytes:65536}),/holds no image/);
+  }finally{rmSync(first,{recursive:true,force:true});}
+});
