@@ -16,11 +16,6 @@
        maximumFractionDigits: 0,
        notation: e >= 1e9 ? "compact" : "standard",
       }).format(e),
-  J = (e) =>
-   new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-   }).format(e),
   c = (e) =>
    String(e ?? "").replace(
     /[&<>"']/g,
@@ -35,15 +30,12 @@
    ),
   G = (e) =>
    e == null
-    ? '<span class="change-none">Loading</span>'
+    ? '<span class="change-none">Not reported</span>'
     : `<span class="${e >= 0 ? "change-pos" : "change-neg"}">${e > 0 ? "+" : ""}${e.toFixed(1)}%</span>`;
  ((query("#snapshot-date").textContent = snapshotData.as_of),
   (query("#count-date").textContent = snapshotData.as_of),
-  (query("#footer-date").textContent = snapshotData.as_of),
   (query("#count-radar").textContent =
    snapshotData.rows.length.toLocaleString("en-US")),
-  (query("#count-watch").textContent =
-   snapshotData.watchlist_size.toLocaleString("en-US")),
   (query("#count-live").textContent =
    snapshotData.live.length.toLocaleString("en-US")),
   (query("#source-line").textContent =
@@ -53,44 +45,50 @@
  const M = new Set(snapshotData.rows.map((e) => e.slug)),
   F = snapshotData.watchlist.filter((e) => M.has(e)),
   U = snapshotData.watchlist.filter((e) => !M.has(e));
- ((query("#coverage-count").textContent = F.length.toLocaleString("en-US")),
-  (query("#coverage-total").textContent =
-   snapshotData.watchlist.length.toLocaleString("en-US")),
+ ((query("#count-watch").textContent = `${F.length}/${snapshotData.watchlist.length}`),
   (query("#coverage-rule").textContent =
-   "Radar requires absent token IDs; generic exclusions apply. WBTC is Bridge; Binance staked ETH is Liquid Staking and marked staked. No parent/dependency map; none inferred."),
+   "Official slugs come from snapshot.watchlist. Additional discoveries use recorded fields. WBTC is Bridge; Binance staked ETH is Liquid Staking. No parent/dependency map; none inferred."),
   (query("#coverage-source").textContent =
-   `Source: ${snapshotData.source} \xB7 ${snapshotData.as_of} \xB7 ${snapshotData.protocols.length} snapshot records.`),
-  (query("#coverage-summary").innerHTML =
-   `<b>Snapshot watchlist: ${snapshotData.watchlist.length}; ${F.length} in radar.</b> Board: ${snapshotData.rows.length}; ${snapshotData.rows.filter((e) => !snapshotData.watchlist.includes(e.slug)).length} additional discoveries. Coverage is the actual slug intersection.${U.length ? ` Missing official slugs: ${c(U.join(", "))}.` : ""}`));
- const v = snapshotData.validation,
-  O = (e) =>
-   `n=${e.n} \xB7 median APE ${(e.median_ape * 100).toFixed(1)}% \xB7 within 2\xD7 ${(e.within_2x * 100).toFixed(1)}%`;
- ((query("#validation-evidence").innerHTML =
-  `<div class="validation-heading"><div><p class="eyebrow">SNAPSHOT-ONLY CHECKS</p><h2>Listed market-cap reconstruction</h2></div><span>Not launch validation</span></div><p class="validation-context">Same-date listed-cap check · board comparables n=${snapshotData.calibration_peer_count}. Holdout ${v.train_count}/${v.holdout_count}; category median at n ≥ 5, else global.</p><div class="validation-grid"><article><span>Holdout · category / global</span><strong>${O(v.strategy)}</strong><small>MAE ${v.strategy.mae_log10.toFixed(4)}</small></article><article><span>Holdout · global only</span><strong>${O(v.global_peer_median)}</strong><small>MAE ${v.global_peer_median.mae_log10.toFixed(4)}</small></article><article><span>Holdout · TVL only</span><strong>${O(v.tvl_equals_market_cap)}</strong><small>MAE ${v.tvl_equals_market_cap.mae_log10.toFixed(4)}</small></article></div><p class="validation-context">Training-only 5-fold out-of-fold CV n=${v.training_cv.validation_count}: category/global APE ${(v.training_cv.category_global.median_ape * 100).toFixed(2)}%, within 2× ${(v.training_cv.category_global.within_2x * 100).toFixed(2)}%, MAE ${v.training_cv.category_global.mae_log10.toFixed(4)}; global-only ${(v.training_cv.global_peer_median.median_ape * 100).toFixed(2)}%, ${(v.training_cv.global_peer_median.within_2x * 100).toFixed(2)}%, ${v.training_cv.global_peer_median.mae_log10.toFixed(4)}; TVL-only ${(v.training_cv.tvl_equals_market_cap.median_ape * 100).toFixed(2)}%, ${(v.training_cv.tvl_equals_market_cap.within_2x * 100).toFixed(2)}%, ${v.training_cv.tvl_equals_market_cap.mae_log10.toFixed(4)}.</p><p class="validation-limit">Small selected cross-section; no tokenless, launch, or future-return validation.</p>`),
-  (query("#method-copy").textContent =
-   "Executable estimate = TVL × trimmed category median market-cap/TVL (n ≥ 5, else global) × growth × tracking-tenure proxy. Growth weight 0.25; change clamp −50% to +100%; tenure 0.85–1 over 730 tracked days. Tracking date is not tokenless age. Validation is mixed and favors global-only on holdout."));
- const R = query("#category"),
-  D = query("#chain");
- (query("#show-official").addEventListener("click", () => {
-  ((query("#scope").value = "watch"),
-   (query("#search").value = ""),
-   (query("#category").value = ""),
-   (query("#chain").value = ""),
-   (b = "radar"),
-   queryAll(".view-tab").forEach((e) => {
-    const n = e.dataset.view === "radar";
-    (e.classList.toggle("active", n),
-     e.setAttribute("aria-pressed", String(n)));
-   }),
-   renderBoard(),
-   query("#search").focus());
- }),
-  [...new Set(snapshotData.rows.map((e) => e.category).filter(Boolean))]
-   .sort()
-   .forEach((e) => R.add(new Option(e, e))),
-  [...new Set(snapshotData.rows.flatMap((e) => e.chains))]
-   .sort()
-   .forEach((e) => D.add(new Option(e, e))));
+   snapshotData.source),
+  (query("#coverage-summary").textContent =
+   `${F.length}/${snapshotData.watchlist.length} official snapshot watchlist slugs in radar. ${M.size - F.length} additional discoveries.${U.length ? ` Missing: ${U.join(", ")}.` : ""}`));
+ const validation = snapshotData.validation;
+ const describeMetric = ({ n, median_ape, within_2x, mae_log10 }) =>
+  `n=${n} · MAE ${mae_log10.toFixed(4)} · median APE ${(median_ape * 100).toFixed(2)}% · within 2× ${(within_2x * 100).toFixed(2)}%`;
+ const metricRows = (items) => items.map(([label, metric]) =>
+  `<article><span>${label}</span><strong>${describeMetric(metric)}</strong></article>`).join("");
+ const cv = validation.training_cv;
+ query("#validation-evidence").innerHTML = `
+  <h2>Listed market-cap reconstruction</h2>
+  <p>Slug split assigned before fitting. ${validation.train_count} training / ${validation.holdout_count} holdout. Lower mean absolute log₁₀ error (MAE) is better.</p>
+  <div class="validation-grid">${metricRows([
+   ["Holdout · category / global", validation.strategy],
+   ["Holdout · global only", validation.global_peer_median],
+   ["Holdout · TVL only", validation.tvl_equals_market_cap],
+  ])}</div>
+  <p>The category/global model underperforms global-only on this holdout.</p>
+  <p>Five-fold training-only validation · ${cv.validation_count} out-of-fold predictions.</p>
+  <div class="validation-grid">${metricRows([
+   ["Training CV · category / global", cv.category_global],
+   ["Training CV · global only", cv.global_peer_median],
+   ["Training CV · TVL only", cv.tvl_equals_market_cap],
+  ])}</div>
+  <p>Same-date peer calibration only. Launch outcomes and model adjustments are unvalidated.</p>`;
+ query("#method-copy").textContent =
+  "TVL × median peer market-cap/TVL × growth × tracking. Use category peers at n ≥ 5, otherwise all peers. Trim the 10th and 90th percentile tails. Growth weight is 0.25 with 7D change bounded at −50% to +100%. Tracking rises from 0.85 to 1 over 730 days since DefiLlama began tracking. Missing change or date uses 1.";
+ const R = query("#category"), D = query("#chain");
+ query("#show-official").addEventListener("click", () => {
+  renderSection("board");
+  resetFilters();
+  query('.view-tab[data-view="radar"]').click();
+  query("#scope").value = "watch";
+  renderBoard();
+  query("#search").focus({ preventScroll: true });
+ });
+ [...new Set(snapshotData.rows.map((row) => row.category).filter(Boolean))]
+  .sort().forEach((value) => R.add(new Option(value, value)));
+ [...new Set(snapshotData.rows.flatMap((row) => row.chains))]
+  .sort().forEach((value) => D.add(new Option(value, value)));
  let b = "radar",
   S = "implied_value_usd",
   k = !0,
@@ -119,19 +117,15 @@
   } catch {
    x = "memory";
   }
-  ((query("#watch-count").textContent =
-   `${g.size.toLocaleString("en-US")} saved \xB7 ${snapshotData.rows.filter((e) => g.has(e.slug)).length.toLocaleString("en-US")} in radar`),
-   (query("#watch-storage-note").textContent =
-    x === "available"
-     ? "Saved on this device"
-     : "Session only \xB7 browser storage unavailable"));
+  updateWatchlistStatus();
  }
- ((query("#watch-count").textContent =
-  `${g.size.toLocaleString("en-US")} saved \xB7 ${snapshotData.rows.filter((e) => g.has(e.slug)).length.toLocaleString("en-US")} in radar`),
-  (query("#watch-storage-note").textContent =
-   x === "available"
-    ? "Saved on this device"
-    : "Session only \xB7 browser storage unavailable"));
+ function updateWatchlistStatus() {
+  const radarMatches = snapshotData.rows.filter((row) => g.has(row.slug)).length;
+  query("#watch-count").textContent = `${g.size} saved · ${radarMatches} in radar`;
+  query("#watch-storage-note").textContent = x === "available"
+   ? "Saved on this device" : "Session only · browser storage unavailable";
+ }
+ updateWatchlistStatus();
  function renderBoard() {
   const e = query("#search").value.trim().toLowerCase(),
    n = R.value,
@@ -153,24 +147,39 @@
     (!i || p.chains.includes(i)) &&
     (b === "live" ||
      d === "all" ||
-     (d === "watch" ? N.has(p.slug) : p.tvl_usd < snapshotData.floor_usd)) &&
+     (d === "watch" ? N.has(p.slug) : !N.has(p.slug))) &&
     (b === "live" || !A || g.has(p.slug))
    );
   });
-  (_.sort((p, u) => {
-   const r = p[S] ?? -1 / 0,
-    a = u[S] ?? -1 / 0;
-   return (typeof r == "string" ? r.localeCompare(a) : r - a) * (k ? -1 : 1);
-  }),
+  (_.sort((left, right) => compareRows(left, right, S, k)),
    (C = _),
    renderRows());
  }
  function renderRows() {
-  (renderScenario(),
+  query("#rank-label").textContent = b === "radar" ? "RANKED BY IMPLIED VALUE" : "SNAPSHOT MARKET DATA";
+  const research = query("#scenario-action");
+  research.textContent = b === "live"
+   ? "Market data recorded in the snapshot"
+   : C.length ? "" : "No matching farm plans";
+  if (b === "radar" && C.length) {
+   const button = document.createElement("button");
+   button.type = "button";
+   button.className = "quiet-button";
+   button.textContent = `Plan & compare · ${C[0].name}`;
+   const slug = C[0].slug;
+   button.addEventListener("click", () => openRecordDetails(slug));
+   research.append(button);
+  }
+  (
    (query("#board-title").textContent =
     b === "radar" ? "The radar board" : "Token-recorded protocols"),
-   (query("#results-label").textContent =
-    `Showing ${C.length.toLocaleString("en-US")} of ${(b === "radar" ? snapshotData.rows : snapshotData.live).length.toLocaleString("en-US")} protocols`),
+   (query("#results-label").textContent = (() => {
+    const scope = query("#scope").value;
+    if (b === "live") return `Showing ${C.length} of ${snapshotData.live.length} token-recorded protocols`;
+    if (scope === "watch") return `Showing ${C.length} of ${F.length} official snapshot watchlist records`;
+    if (scope === "early") return `Showing ${C.length} of ${M.size - F.length} additional discoveries`;
+    return `Showing ${C.length} of ${M.size} radar records`;
+   })()),
    (query("#empty").hidden = C.length > 0),
    (query("#rows").hidden = C.length === 0),
    (query("#rows").innerHTML = C.map((e, n) => {
@@ -183,7 +192,7 @@
      n.target.closest("[data-watch]") || openRecordDetails(e.dataset.slug);
     }),
      e.addEventListener("keydown", (n) => {
-      (n.key === "Enter" || n.key === " ") &&
+      n.target === e && (n.key === "Enter" || n.key === " ") &&
        (n.preventDefault(), openRecordDetails(e.dataset.slug));
      }));
    }),
@@ -192,100 +201,57 @@
      n.stopPropagation();
      const i = e.dataset.watch;
      (g.has(i) ? g.delete(i) : g.add(i), saveWatchlist(), renderBoard());
+     queryAll("#rows [data-watch]").find((button) => button.dataset.watch === i)?.focus();
     }),
    ));
  }
- function renderScenario() {
-  const record = C[0];
-  const budget = Number(query("#scenario-budget").value);
-  const read = (selector) =>
-   query(selector).value === "" ? null : Number(query(selector).value);
-  const gas = read("#scenario-gas"),
-   fees = read("#scenario-fees");
-  const action = query("#scenario-action");
-  const resultsOpen = query(".scenario-results")?.open;
-
-  if (b === "live") {
-   action.textContent =
-    "Radar planning applies only to records with token fields absent.";
-   return;
+ const draftsBySlug = new Map();
+ function openRecordDetails(slug) {
+  const protocol = H.get(slug);
+  if (!protocol) return;
+  const row = Y.get(slug);
+  const tokenRecorded = protocol.gecko_id !== null || protocol.symbol !== null;
+  const date = protocol.listed_at;
+  const trackedDays = date === null ? NaN
+   : Math.max(0, Math.floor((Date.parse(snapshotData.as_of) - Date.parse(date)) / 864e5));
+  const age = Number.isFinite(trackedDays) ? `${trackedDays.toLocaleString()} days` : "Unknown";
+  const metrics = [
+   row ? ["Radar rank", `#${row.rank}`] : ["Market cap", m(protocol.mcap_usd)],
+   ["TVL", m(protocol.tvl_usd)],
+   ["7D TVL change", protocol.change_7d === null ? "Not reported" : formatPercent(protocol.change_7d)],
+   ["Tracking age", age],
+  ];
+  const dialog = query("#detail"), content = query("#detail-content");
+  const badge = row ? (N.has(slug) ? "Official snapshot watchlist" : "Additional discovery")
+   : tokenRecorded ? "Token recorded" : "Outside radar filters";
+  content.innerHTML = `
+   <div class="detail-kicker">${badge} · ${c(snapshotData.as_of)}</div>
+   <h2 class="detail-title" id="detail-title">${c(protocol.name)}</h2>
+   <p class="detail-lede">${c(protocol.category || "Category not reported")} · ${c(protocol.chains.join(", ") || "Chains not reported")} · <code>${c(slug)}</code></p>
+   <div class="detail-metrics">${metrics.map(([label, value]) => `<div><span>${label}</span><strong>${c(value)}</strong></div>`).join("")}</div>
+   ${row ? '<div class="research-tools"></div>'
+    : tokenRecorded ? '<h3 class="detail-section-title">Separate market data record</h3><p>Market cap and TVL come from the frozen snapshot. Token-recorded entries sit outside the radar valuation.</p>'
+    : '<h3 class="detail-section-title">Outside the radar filter</h3><p>The available frozen snapshot fields are shown above.</p>'}
+   <button class="detail-watch" type="button"></button>`;
+  const save = content.querySelector(".detail-watch");
+  function updateSaveButton() {
+   save.setAttribute("aria-pressed", String(g.has(slug)));
+   save.textContent = g.has(slug) ? "★ Saved to my watchlist" : "☆ Add to my watchlist";
   }
-  if (!record) {
-   action.textContent =
-    "No radar records match. Change the filters to see a conditional plan.";
-   return;
-  }
-
-  const result = window.calculateScenario({
-   amount: budget,
-   days: read("#scenario-days"),
-   decline: Number(query("#scenario-shock").value),
-   entryGas: gas,
-   entryFee: fees,
-   exitGas: read("#scenario-exit-gas"),
-   exitFee: read("#scenario-exit-fees"),
+  updateSaveButton();
+  save.addEventListener("click", () => {
+   if (g.has(slug)) g.delete(slug);
+   else g.add(slug);
+   saveWatchlist();
+   updateSaveButton();
+   renderBoard();
   });
-  const money = (value) => `$${value.toFixed(2)}`;
-  if (result.error) {
-   action.textContent = result.error;
-   return;
+  if (row) {
+   if (!draftsBySlug.has(slug)) draftsBySlug.set(slug, { farm: {} });
+   mountResearchTools(content.querySelector(".research-tools"), row, snapshotData, draftsBySlug.get(slug), c);
   }
-  const cost = (v) =>
-   v === null ? "unknown" : `${money(v)} (user supplied; not verified)`;
-  const entrySubtotal =
-   gas !== null && fees !== null
-    ? `${money(budget)} capital + ${money(gas)} gas + ${money(fees)} protocol fees = ${money(budget + gas + fees)}`
-    : `${money(budget)} capital + ${gas === null ? "gas unknown" : money(gas) + " gas"} + ${fees === null ? "protocol fees unknown" : money(fees) + " protocol fees"}`;
-  const total =
-   result.total === null
-    ? "Total outlay cannot be estimated until every entry and exit cost is supplied."
-    : `All-in hypothetical total: ${money(result.total)}.`;
-  const protocolRefs = String.fromCharCode(47).repeat(2);
-  action.innerHTML = `<div class="scenario-current"><b>${c(record.name)} · ${c(record.category || "Unclassified")}</b><br><span>${c(record.farm_steps[1])}</span><details class="scenario-results" ${resultsOpen ? "open" : ""}><summary>View itemized hypothetical result</summary><div class="scenario-math"><b>User inputs · hypothetical, not verified</b><span>Capital amount: ${money(budget)}</span><span>Entry gas: ${cost(gas)}</span><span>Entry protocol fee: ${cost(fees)}</span><span>Exit gas: ${cost(read("#scenario-exit-gas"))}</span><span>Exit protocol fee: ${cost(read("#scenario-exit-fees"))}</span><span>User-selected hold: ${result.days === null ? "not entered" : `${result.days} days`}. Not recommended and unrelated to eligibility.</span><span>Illustrative asset decline: ${result.decline}%; principal sensitivity loss ${money(result.loss)}. No forecast or volatility estimate.</span><span>Entry subtotal formula: ${entrySubtotal}. ${total}</span><span>Capital loss exposure: $0 to ${money(budget)}, plus unknown costs. If exit is unavailable: up to ${money(result.exitUnavailableLoss)} capital and known entry costs may be trapped or lost; failed transactions may still consume unknown gas.</span><span>Gas can vary and swaps can incur slippage; implementations vary. No quote is verified. General references: <a href="https:${protocolRefs}ethereum.org/developers/docs/gas/">Ethereum gas</a> and <a href="https:${protocolRefs}docs.uniswap.org/concepts/protocol/swaps">Uniswap swaps</a>.</span></div></details><span class="scenario-time">Planning time estimate: 15 to 25 minutes. Next: ${c(record.farm_steps[1])} Formula: capital × decline% = sensitivity loss. No reward or eligibility assumed.</span></div>`;
- }
- function openRecordDetails(e) {
-  const n = H.get(e);
-  if (!n) return;
-  const i = Y.get(e),
-   d = !!i,
-   f = !(n.gecko_id === null && n.symbol === null),
-   _ = n.tvl_usd < snapshotData.floor_usd,
-   p =
-    i?.age_days ??
-    (n.listed_at
-     ? Math.max(
-        0,
-        Math.floor(
-         (Date.parse(`${snapshotData.as_of}T00:00:00Z`) -
-          Date.parse(`${n.listed_at}T00:00:00Z`)) /
-          864e5,
-        ),
-       )
-     : null),
-   u = (i?.farm_steps || []).map((s) => `<li>${c(s)}</li>`).join(""),
-   r = i?.valuation_inputs,
-   a =
-    r && typeof window.calculateRadarValue == "function"
-     ? window.calculateRadarValue(r)
-     : null,
-   l = a === i?.implied_value_usd,
-   $ = r
-    ? `<div class="model-trace" aria-label="Executable per-record valuation inputs"><div><b>Executable formula</b> max(1, Math.round(TVL \xD7 peer ratio \xD7 growth \xD7 tenure))</div><div><b>Calibration</b> ${c(r.calibration_scope)} \xB7 ratio ${r.calibration_ratio.toPrecision(6)} \xB7 n=${r.calibration_peer_count}</div><div><b>TVL input</b> ${m(r.tvl_usd)}</div><div><b>7D change input</b> ${r.change_7d === null ? "Missing \u2192 neutral growth 1.0000" : `${r.change_7d}% \u2192 bounded ${r.bounded_change_7d}% \u2192 growth ${r.growth_multiplier.toFixed(6)}`}</div><div><b>Listing date</b> ${r.listing_date === null ? "Missing \u2192 neutral tenure 1.0000" : `${c(r.listing_date)} \u2192 ${r.tracked_age_days} tracked days \u2192 tenure ${r.tenure_multiplier.toFixed(6)}`}</div><div><b>Tenure meaning</b> Snapshot tracking age only; not tokenless age.</div><div><b>Rounding</b> ${c(r.rounding)}</div><div class="${l ? "model-match" : "model-mismatch"}"><b>Recomputed / emitted</b> ${m(a)} / ${m(i.implied_value_usd)} \xB7 ${l ? "MATCH" : "DIVERGENCE"}</div></div>`
-    : "",
-   L = Number(query("#scenario-budget").value);
-  ((query("#detail-content").innerHTML =
-   `<div class="detail-kicker">${d ? "RADAR RECORD \xB7 " + (N.has(n.slug) ? "WATCHLIST COVERED" : _ ? "BELOW WATCHLIST FLOOR" : "EXTENDED DISCOVERY") : f ? "TOKEN FIELDS RECORDED \xB7 MARKET DATA VIEW" : "SNAPSHOT RECORD \xB7 NOT IN RADAR FILTERS"}</div><h2 class="detail-title" id="detail-title">${c(n.name)}</h2><p class="detail-lede">${c(n.category || "Category not reported")} \xB7 ${c(n.chains.join(", ") || "Chain data not reported")} \xB7 snapshot slug <code>${c(n.slug)}</code></p><button class="detail-watch ${g.has(n.slug) ? "is-watched" : ""}" type="button" data-detail-watch="${c(n.slug)}" aria-pressed="${g.has(n.slug)}">${g.has(n.slug) ? "\u2605 Saved to my watchlist" : "\u2606 Add to my watchlist"}</button><div class="detail-metrics"><div><span>${d ? "RADAR RANK" : f ? "MARKET CAP" : "TOKEN FIELDS"}</span><strong>${d ? "#" + i.rank : f ? m(n.mcap_usd) : "Not recorded"}</strong></div><div><span>TVL</span><strong>${m(n.tvl_usd)}</strong></div><div><span>7D TVL CHANGE</span><strong>${n.change_7d == null ? "Not reported" : (n.change_7d > 0 ? "+" : "") + n.change_7d.toFixed(2) + "%"}</strong></div><div><span>TRACKED AGE</span><strong>${p == null ? "Unknown" : p.toLocaleString() + " days"}</strong></div></div>${d ? `<h3 class="detail-section-title">VALUE TRACE \xB7 MODEL ESTIMATE</h3><div class="value-explainer"><code>${c(i.valuation_note)}</code><br>Implied value: <b>${m(i.implied_value_usd)}</b>. Comparable sample and coefficients are disclosed assumptions. Not a price target or issuance probability.${$}</div><h3 class="detail-section-title">CATEGORY RESEARCH PLAN \xB7 NOT VERIFIED</h3><p class="farm-provenance">Source: ${c(snapshotData.source)} \xB7 ${c(snapshotData.as_of)}. Snapshot evidence is limited to record fields above. These are conditional category steps; project documentation and routes have not been checked.</p><p class="farm-budget-note"><b>Hypothetical capital cap: $${L}.</b> Gas: unknown. Protocol fees: unknown. Total outlay is not estimated. Potential capital loss: $0 to $${L}, plus unknown costs. Any dollar costs shown in the board are user-supplied and have not been verified by this app.</p><ol class="farm-list">${u}</ol><p class="detail-warning">Absent fields do not prove no token. No live program, eligibility, fees, safety, or rewards established; verify first. Gas and capital at risk are unknown.</p>` : f ? '<h3 class="detail-section-title">SEPARATE MARKET DATA RECORD</h3><div class="value-explainer">Token fields are recorded in this snapshot, so this protocol is excluded from the radar valuation. Market cap and TVL are the snapshot record, not a valuation estimate from this interface.</div>' : '<h3 class="detail-section-title">OUTSIDE THE RADAR FILTER</h3><div class="value-explainer">This full-snapshot record is not in the token-absent radar subset. Its available snapshot fields are shown above; token-field absence is not inferred.</div>'}`),
-   query("#detail-content [data-detail-watch]").addEventListener(
-    "click",
-    (s) => {
-     const h = s.currentTarget.dataset.detailWatch;
-     (g.has(h) ? g.delete(h) : g.add(h),
-      saveWatchlist(),
-      openRecordDetails(h),
-      renderBoard());
-    },
-   ),
-   query("#detail").showModal());
+  dialog.showModal();
+  dialog.scrollTop = 0;
  }
  (query("#detail .close-detail").addEventListener("click", () =>
   query("#detail").close(),
@@ -326,26 +292,6 @@
   R.addEventListener("change", renderBoard),
   D.addEventListener("change", renderBoard),
   query("#scope").addEventListener("change", renderBoard),
-  (() => {
-   for (const input of [
-    "#scenario-budget",
-    "#scenario-gas",
-    "#scenario-fees",
-    "#scenario-exit-gas",
-    "#scenario-exit-fees",
-    "#scenario-days",
-    "#scenario-shock",
-   ]) {
-    query(input).addEventListener("input", () => {
-     renderScenario();
-     if (query("#detail").open) {
-      const slug = query("#detail-content [data-detail-watch]")?.dataset
-       .detailWatch;
-      if (slug) openRecordDetails(slug);
-     }
-    });
-   }
-  })(),
   query("#watch-filter").addEventListener("click", () => {
    (b === "live" &&
     queryAll(".view-tab")
@@ -398,114 +344,109 @@
    query("#watch-filter").setAttribute("aria-pressed", "false"),
    renderBoard());
  }
- const q = snapshotData.protocols || [
-   ...snapshotData.rows,
-   ...snapshotData.live,
-  ],
-  B = queryAll(".section-tab");
- function renderSection(e) {
-  B.forEach((a) => {
-   (a.classList.toggle("active", a.dataset.section === e),
-    a.dataset.section === e
-     ? a.setAttribute("aria-current", "page")
-     : a.removeAttribute("aria-current"));
-  });
-  const n = e === "board";
-  if (
-   ((query("#board").hidden = !n),
-   (query(".view-tabs").hidden = !n),
-   (query("#insights").hidden = n),
-   n)
-  )
-   return;
-  const i = query("#insights"),
-   d = i.contains(document.activeElement) ? document.activeElement.id : "",
-   f =
-    d && typeof document.activeElement.selectionStart == "number"
-     ? document.activeElement.selectionStart
-     : null,
-   _ = [...new Set(q.map((a) => a.category).filter(Boolean))].sort(),
-   p = () => {
-    if (d) {
-     const a = query("#" + d);
-     a && (a.focus(), f !== null && a.setSelectionRange(f, f));
-    }
-   },
-   u = c,
-   r = `Snapshot: ${u(snapshotData.as_of)} \xB7 Frozen cross-section \xB7 TVL is protocol TVL, not DEX pair liquidity.`;
-  if (e === "liquidity") {
-   const a = (query("#liq-search")?.value || "").trim().toLowerCase(),
-    l = query("#liq-category")?.value || "",
-    $ = query("#liq-sort")?.value || "tvl",
-    L = q
-     .filter(
-      (s) =>
-       (!a ||
-        `${s.name} ${s.slug} ${s.category || ""} ${s.chains.join(" ")}`
-         .toLowerCase()
-         .includes(a)) &&
-       (!l || s.category === l),
-     )
-     .sort((s, h) =>
-      $ === "change"
-       ? (h.change_7d ?? -1 / 0) - (s.change_7d ?? -1 / 0) ||
-         s.slug.localeCompare(h.slug)
-       : $ === "name"
-         ? s.name.localeCompare(h.name) || s.slug.localeCompare(h.slug)
-         : h.tvl_usd - s.tvl_usd || s.slug.localeCompare(h.slug),
-     );
-   ((i.innerHTML = `<div class="section-heading"><div><p class="eyebrow">SNAPSHOT RANKINGS</p><h2>Protocol TVL</h2><p class="section-deck">TVL may overlap; not chain or DEX liquidity or executable depth.</p></div><span class="section-date">${r}</span></div><div class="section-tools"><label>Search snapshot records <input id="liq-search" type="search" placeholder="Name, category or chain" value="${u(a)}"></label><label>Category <select id="liq-category"><option value="">All categories</option>${_.map((s) => `<option ${s === l ? "selected" : ""}>${u(s)}</option>`).join("")}</select></label><label>Sort by <select id="liq-sort"><option value="tvl" ${$ === "tvl" ? "selected" : ""}>TVL, high to low</option><option value="change" ${$ === "change" ? "selected" : ""}>7-day change, high to low</option><option value="name" ${$ === "name" ? "selected" : ""}>Name, A to Z</option></select></label></div><p class="section-note">${L.length} rows · USD · 7-day TVL change, not token price.</p><div class="rank-list">${L.length ? L.map((s, h) => `<button class="rank-row record-button" type="button" data-open="${u(s.slug)}"><span class="rank-number">${String(h + 1).padStart(3, "0")}</span><span class="rank-name"><strong>${u(s.name)}</strong><small>${u(s.category || "Unclassified")} \xB7 ${u(s.chains.slice(0, 3).join(", ") || "Chain not reported")}</small></span><strong class="rank-tvl">${m(s.tvl_usd)}</strong><span class="rank-change">${s.change_7d == null ? "Not reported" : formatPercent(s.change_7d)}</span></button>`).join("") : '<p class="section-empty">No snapshot records match. Try another search or category.</p>'}</div>`),
-    i
-     .querySelectorAll("[data-open]")
-     .forEach((s) =>
-      s.addEventListener("click", () => openRecordDetails(s.dataset.open)),
-     ),
-    query("#liq-search").addEventListener("input", () => renderSection(e)),
-    query("#liq-category").addEventListener("change", () => renderSection(e)),
-    query("#liq-sort").addEventListener("change", () => renderSection(e)),
-    p());
-  } else if (e === "launch") {
-   const a = (query("#launch-search")?.value || "").trim().toLowerCase(),
-    l = query("#launch-category")?.value || "",
-    $ = query("#launch-sort")?.value || "value",
-    L = snapshotData.rows
-     .filter(
-      (s) =>
-       (!a ||
-        `${s.name} ${s.slug} ${s.category || ""} ${s.chains.join(" ")}`
-         .toLowerCase()
-         .includes(a)) &&
-       (!l || s.category === l),
-     )
-     .sort((s, h) =>
-      $ === "tvl"
-       ? h.tvl_usd - s.tvl_usd || s.slug.localeCompare(h.slug)
-       : $ === "change"
-         ? (h.change_7d ?? -1 / 0) - (s.change_7d ?? -1 / 0) ||
-           s.slug.localeCompare(h.slug)
-         : $ === "name"
-           ? s.name.localeCompare(h.name) || s.slug.localeCompare(h.slug)
-           : h.implied_value_usd - s.implied_value_usd ||
-             s.slug.localeCompare(h.slug),
-     );
-   ((i.innerHTML = `<div class="section-heading"><div><p class="eyebrow">TOKEN FIELDS NOT RECORDED</p><h2>Launch research candidates</h2><p class="section-deck">Records with absent token fields, not upcoming launches, verified airdrops, or proof a token will exist.</p></div><span class="section-date">${r}</span></div><div class="section-tools"><label>Search candidates <input id="launch-search" type="search" placeholder="Name, category or chain" value="${u(a)}"></label><label>Category <select id="launch-category"><option value="">All categories</option>${_.map((s) => `<option ${s === l ? "selected" : ""}>${u(s)}</option>`).join("")}</select></label><label>Sort by <select id="launch-sort"><option value="value" ${$ === "value" ? "selected" : ""}>Model value, high to low</option><option value="tvl" ${$ === "tvl" ? "selected" : ""}>TVL, high to low</option><option value="change" ${$ === "change" ? "selected" : ""}>7-day change, high to low</option><option value="name" ${$ === "name" ? "selected" : ""}>Name, A to Z</option></select></label></div><p class="section-note">All ${L.length} rows \xB7 absent symbol/ID does not prove token absence. Select for model trace and research plan.</p><div class="opportunity-grid">${L.length ? L.map((s) => `<button type="button" class="opportunity-card record-button" data-open="${u(s.slug)}"><span>${N.has(s.slug) ? "WATCHLIST FLOOR" : "DISCOVERY \xB7 SNAPSHOT ONLY"}</span><h3>${u(s.name)}</h3><p>${u(s.category || "Unclassified")} \xB7 ${u(s.chains.slice(0, 2).join(", ") || "Chain not reported")}</p><span class="card-metric"><b>${m(s.tvl_usd)}</b><small>snapshot TVL</small></span><small>Model value ${m(s.implied_value_usd)} \xB7 7D TVL ${s.change_7d == null ? "not reported" : formatPercent(s.change_7d)} \xB7 tracking date ${s.listed_at || "not reported"}</small><span class="opportunity-action"><b>Next research task \xB7 10 to 15 min:</b> ${u(s.farm_steps[1])}</span></button>`).join("") : '<p class="section-empty">No candidates match these filters.</p>'}</div>`),
-    i
-     .querySelectorAll("[data-open]")
-     .forEach((s) =>
-      s.addEventListener("click", () => openRecordDetails(s.dataset.open)),
-     ),
-    query("#launch-search").addEventListener("input", () => renderSection(e)),
-    query("#launch-category").addEventListener("change", () =>
-     renderSection(e),
-    ),
-    query("#launch-sort").addEventListener("change", () => renderSection(e)),
-    p());
-  } else renderCharts(i, q, _, u, r);
+ const protocols = snapshotData.protocols;
+ const sections = queryAll(".section-tab");
+ const insights = query("#insights");
+ const sectionState = {
+  liquidity: { search: "", category: "", sort: "tvl_usd" },
+  launch: { search: "", category: "", sort: "implied_value_usd" },
+ };
+ function compareRows(left, right, field, descending) {
+  const a = left[field], b = right[field];
+  const tie = left.slug.localeCompare(right.slug, "en");
+  if (a == null || b == null) return a === b ? tie : a == null ? 1 : -1;
+  const order = typeof a === "string" ? a.localeCompare(b, "en") : a - b;
+  return order * (descending ? -1 : 1) || tie;
  }
+ function renderSection(section) {
+  for (const tab of sections) {
+   const active = tab.dataset.section === section;
+   tab.classList.toggle("active", active);
+   if (active) tab.setAttribute("aria-current", "page");
+   else tab.removeAttribute("aria-current");
+  }
+  const board = section === "board";
+  query("#board").hidden = query(".view-tabs").hidden = !board;
+  insights.hidden = board;
+  if (board) return;
+  const date = c(snapshotData.as_of);
+  if (section === "charts") {
+   renderCharts(insights, protocols, c, date);
+   return;
+  }
+
+  const launch = section === "launch";
+  const state = sectionState[section];
+  const prefix = launch ? "launch" : "liq";
+  const records = launch ? snapshotData.rows : protocols;
+  const options = [...new Set(records.map((row) => row.category).filter(Boolean))].sort();
+  const sortFields = [["tvl_usd", "TVL"], ["change_7d", "7-day TVL change"], ["name", "Name"]];
+  if (launch) sortFields.unshift(["implied_value_usd", "Implied value"]);
+  insights.innerHTML = `
+   <div class="section-heading"><div>
+    <h2>${launch ? "Launch research candidates" : "Protocol TVL"}</h2>
+    <p class="section-deck">${launch ? "Records with absent token fields. Launches and airdrops are unverified." : "TVL sums may overlap. Executable depth and pair liquidity are unreported."}</p>
+   </div><span class="section-date">${date} · Frozen snapshot</span></div>
+   <div class="section-tools">
+    <label>Search <input id="${prefix}-search" type="search" placeholder="Name, category or chain" value="${c(state.search)}"></label>
+    <label>Category <select id="${prefix}-category"><option value="">All categories</option>
+     ${options.map((value) => `<option>${c(value)}</option>`).join("")}</select></label>
+    <label>Sort by <select id="${prefix}-sort">${sortFields.map(([value, title]) => `<option value="${value}">${title}</option>`).join("")}</select></label>
+   </div>
+   <p class="section-note" aria-live="polite"></p>
+   <div class="${launch ? "opportunity-grid" : "rank-list"}" id="section-rows"></div>`;
+  for (const key of ["search", "category", "sort"]) {
+   const field = query(`#${prefix}-${key}`);
+   field.value = state[key];
+   field.addEventListener("input", () => {
+    state[key] = field.value;
+    updateResults();
+   });
+  }
+  function updateResults() {
+   const search = state.search.trim().toLowerCase();
+   const matches = records.filter((row) => (!state.category || row.category === state.category)
+    && `${row.name} ${row.slug} ${row.category ?? ""} ${row.chains.join(" ")}`.toLowerCase().includes(search));
+   matches.sort((left, right) => compareRows(left, right, state.sort, state.sort !== "name"));
+   insights.querySelector(".section-note").textContent = `${matches.length} of ${records.length} snapshot records`;
+   query("#section-rows").innerHTML = matches.length
+    ? (launch ? matches.map(launchCard) : matches.map(rankRow)).join("")
+    : '<p class="section-empty">No snapshot records match. Try another search or category.</p>';
+  }
+  updateResults();
+ }
+ function rankRow(row, index) {
+  return `<button class="rank-row record-button" type="button" data-open="${c(row.slug)}">
+   <span class="rank-number">${String(index + 1).padStart(3, "0")}</span>
+   <span class="rank-name"><strong>${c(row.name)}</strong><small>${c(row.category || "Unclassified")} · ${c(row.chains.slice(0, 3).join(", ") || "Chain not reported")}</small></span>
+   <strong class="rank-tvl">${m(row.tvl_usd)}</strong><span class="rank-change">${row.change_7d === null ? "Not reported" : formatPercent(row.change_7d)}</span>
+  </button>`;
+ }
+ function launchCard(row) {
+  return `<button class="opportunity-card record-button" type="button" data-open="${c(row.slug)}">
+   <span>${N.has(row.slug) ? "Official snapshot watchlist" : "Additional discovery"}</span>
+   <h3>${c(row.name)}</h3>
+   <p>${c(row.category || "Unclassified")} · ${c(row.chains.slice(0, 2).join(", ") || "Chain not reported")}</p>
+   <span class="card-metric"><b>${m(row.tvl_usd)}</b><small>snapshot TVL</small></span>
+   <small>Model value ${m(row.implied_value_usd)} · 7D TVL ${row.change_7d === null ? "not reported" : formatPercent(row.change_7d)} · tracking date ${c(row.listed_at || "not reported")}</small>
+   <span class="opportunity-action">${c(row.farm_steps[0])}</span>
+  </button>`;
+ }
+ insights.addEventListener("click", (event) => {
+  const record = event.target.closest("[data-open]");
+  if (record) openRecordDetails(record.dataset.open);
+  const category = event.target.closest("[data-chart-cat]");
+  if (category) {
+   sectionState.liquidity.category = category.dataset.chartCat;
+   sectionState.liquidity.search = "";
+   renderSection("liquidity");
+   query("#liq-category").focus();
+  }
+ });
  function formatPercent(e) {
   return `${e > 0 ? "+" : ""}${e.toFixed(1)}%`;
  }
- function renderCharts(e, n, i, d, f) {
+ function renderCharts(e, n, d, f) {
   const _ = new Map();
   n.forEach((a) => {
    const l = a.category || "Unclassified";
@@ -530,31 +471,10 @@
     ["\u2265 +20%", (a) => a.change_7d != null && a.change_7d >= 20],
     ["Not reported", (a) => a.change_7d == null],
    ].map(([a, l]) => [a, n.filter(l).length]);
-  ((e.innerHTML = `<div class="section-heading"><div><p class="eyebrow">ONE-DATE CROSS-SECTION</p><h2>Snapshot charts</h2><p class="section-deck">One-date cross-section; no time series or price activity.</p></div><span class="section-date">${f}</span></div><div class="chart-grid"><article class="chart-card"><h3>TVL by category</h3><p>Sum of reported protocol TVL \xB7 top 8 categories \xB7 overlapping totals</p><div class="bar-chart" role="group" aria-label="Category TVL sums; records may overlap">${p.map(([a, l]) => `<button class="bar-row" type="button" data-chart-cat="${d(a)}" aria-label="Filter liquidity ranking by ${d(a)}, summed protocol TVL ${m(l)}"><span>${d(a)}</span><i aria-hidden="true"><b style="width:${Math.max(1, (l / u) * 100)}%"></b></i><strong>${m(l)}</strong></button>`).join("")}</div><small>Overlapping protocol TVL totals; not additive chain liquidity. Select a category to filter.</small></article><article class="chart-card"><h3>7-day TVL change distribution</h3><p>Protocol count by reported percentage band</p><div class="distribution">${r.map(([a, l]) => `<div><span>${d(a)}</span><i aria-hidden="true"><b style="width:${n.length ? (l / n.length) * 100 : 0}%"></b></i><strong>${l}</strong></div>`).join("")}</div><small>All ${n.length} records; missing change is separate. Not price performance.</small></article></div><article class="chart-card top-protocols"><h3>Largest protocols by snapshot TVL</h3><p>Top 10 of ${n.length} · USD at ${d(snapshotData.as_of)} · select for details</p><div class="rank-list">${[
-   ...n,
-  ]
-   .sort((a, l) => l.tvl_usd - a.tvl_usd)
-   .slice(0, 10)
-   .map(
-    (a, l) =>
-     `<button type="button" class="rank-row record-button" data-open="${d(a.slug)}"><span class="rank-number">${String(l + 1).padStart(2, "0")}</span><span class="rank-name"><strong>${d(a.name)}</strong><small>${d(a.category || "Unclassified")}</small></span><strong class="rank-tvl">${m(a.tvl_usd)}</strong><span class="rank-change">${a.change_7d == null ? "Not reported" : formatPercent(a.change_7d)}</span></button>`,
-   )
-   .join("")}</div></article>`),
-   e.querySelectorAll("[data-chart-cat]").forEach((a) =>
-    a.addEventListener("click", () => {
-     (renderSection("liquidity"),
-      (query("#liq-category").value = a.dataset.chartCat),
-      renderSection("liquidity"));
-    }),
-   ),
-   e
-    .querySelectorAll("[data-open]")
-    .forEach((a) =>
-     a.addEventListener("click", () => openRecordDetails(a.dataset.open)),
-    ));
+  e.innerHTML = `<div class="section-heading"><div><p class="eyebrow">ONE-DATE CROSS-SECTION</p><h2>Snapshot charts</h2><p class="section-deck">Single snapshot of reported TVL.</p></div><span class="section-date">${f}</span></div><div class="chart-grid"><article class="chart-card"><h3>TVL by category</h3><p>Top 8 categories · overlapping protocol TVL</p><div class="bar-chart" role="group" aria-label="Category TVL sums; records may overlap">${p.map(([a, l]) => `<button class="bar-row" type="button" data-chart-cat="${d(a)}" aria-label="Filter liquidity ranking by ${d(a)}, summed protocol TVL ${m(l)}"><span>${d(a)}</span><i aria-hidden="true"><b style="width:${Math.max(1, (l / u) * 100)}%"></b></i><strong>${m(l)}</strong></button>`).join("")}</div><small>Select a category to filter liquidity.</small></article><article class="chart-card"><h3>7-day TVL change distribution</h3><p>Protocol count by reported percentage band</p><div class="distribution">${r.map(([a, l]) => `<div><span>${d(a)}</span><i aria-hidden="true"><b style="width:${n.length ? (l / n.length) * 100 : 0}%"></b></i><strong>${l}</strong></div>`).join("")}</div><small>All ${n.length} records · TVL change only.</small></article></div><article class="chart-card top-protocols"><h3>Largest protocols by snapshot TVL</h3><p>Top 10 of ${n.length} · USD at ${d(snapshotData.as_of)} · select for details</p><div class="rank-list">${[...n].sort((a, b) => b.tvl_usd - a.tvl_usd).slice(0, 10).map(rankRow).join("")}</div></article>`;
  }
- (B.forEach((e) =>
-  e.addEventListener("click", () => renderSection(e.dataset.section)),
+ (sections.forEach((tab) =>
+  tab.addEventListener("click", () => renderSection(tab.dataset.section)),
  ),
   query("#reset").addEventListener("click", resetFilters),
   query("#clear-empty").addEventListener("click", resetFilters));

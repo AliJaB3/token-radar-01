@@ -1,9 +1,10 @@
 /** Snapshot-only launch radar. All market anchors come from token-bearing rows in this file. */
 import { calculateRadarValue } from '../dashboard/00-valuation.js';
+import { buildFarmPlan } from './farm-plans.ts';
 export type Protocol = { slug:string; name:string; category:string|null; chains:string[]; tvl_usd:number; change_7d:number|null; mcap_usd:number|null; listed_at:string|null; gecko_id:string|null; symbol:string|null };
 export type Snapshot = { as_of:string; source:string; floor_usd:number; protocols:Protocol[]; watchlist:string[] };
 export type ValuationInputs={tvl_usd:number;calibration_ratio:number;calibration_peer_count:number;calibration_scope:'category'|'all-token-recorded';change_7d:number|null;bounded_change_7d:number|null;growth_multiplier:number;listing_date:string|null;tracked_age_days:number|null;tenure_multiplier:number;rounding:'Math.round; minimum 1 USD'};
-export type Row = Protocol & { rank:number; token_status:'unrecorded'; age_days:number|null; implied_value_usd:number; calibration_ratio:number; calibration_peer_count:number; calibration_scope:'category'|'all-token-recorded'; growth_multiplier:number; tenure_multiplier:number; valuation_inputs:ValuationInputs; farm_steps:string[]; valuation_note:string };
+export type Row = Protocol & { rank:number; token_status:'unrecorded'; age_days:number|null; implied_value_usd:number; calibration_ratio:number; calibration_peer_count:number; calibration_scope:'category'|'all-token-recorded'; growth_multiplier:number; tenure_multiplier:number; valuation_inputs:ValuationInputs; farm_steps:string[]; farm_sources:[string,string][]; valuation_note:string };
 export type ValidationMetrics={n:number;mae_log10:number;median_ape:number;within_2x:number};
 export type TrainingValidation={split:string;folds:number;fit_count:number;validation_count:number;fold_validation_counts:number[];fold_fit_counts:number[];category_global:ValidationMetrics;global_peer_median:ValidationMetrics;tvl_equals_market_cap:ValidationMetrics};
 export type HeldOutValidation={split:string;holdout_fraction:number;train_count:number;holdout_count:number;train_slugs:string[];holdout_slugs:string[];strategy:ValidationMetrics;global_peer_median:ValidationMetrics;tvl_equals_market_cap:ValidationMetrics;training_cv:TrainingValidation};
@@ -79,31 +80,6 @@ export function validateHeldOut(snapshot:Snapshot):HeldOutValidation {
   const training_cv:TrainingValidation={split:'Nested in outer train; FNV-1a("cv:" + slug) mod 5; each row predicted out of fold',folds:5,fit_count:train.length,validation_count:cvActual.length,fold_validation_counts,fold_fit_counts,category_global:metric(cvActual,cvCategory),global_peer_median:metric(cvActual,cvGlobal),tvl_equals_market_cap:metric(cvActual,cvTvl)};
   return {split:'FNV-1a(slug) mod 5 = 0; assigned before fitting',holdout_fraction:0.2,train_count:train.length,holdout_count:holdout.length,train_slugs:train.map(p=>p.slug).sort(),holdout_slugs:holdout.map(p=>p.slug).sort(),strategy:metric(actual,strategy),global_peer_median:metric(actual,globalBase),tvl_equals_market_cap:metric(actual,tvlBase),training_cv};
 }
-function farmPlan(p:Protocol):string[] {
-  const c=(p.category??'').toLowerCase();
-  const activity = c.includes('lend')||c.includes('cdp')||c.includes('collateral') ? 'For lending: locate the documented supply market; write down asset, collateral factor, oracle, liquidation threshold, and withdrawal conditions. Do not borrow.'
-  : c.includes('dex')||c.includes('liquidity manager')||c==='farm' ? 'For a DEX: identify a documented pool and both assets; check fee tier, pool depth, exit steps, and impermanent-loss exposure before considering liquidity.'
-  : c.includes('yield')||c.includes('vault')||c.includes('curator')||c.includes('allocator')||c.includes('leveraged farming') ? 'For a vault: list the strategy, underlying protocols, curator permissions, withdrawal queue, and loss conditions. Skip leverage unless independently understood.'
-  : c.includes('derivative')||c.includes('perpetual')||c.includes('basis') ? 'For derivatives: record the settlement asset, funding calculation, fees, liquidation trigger, and close position path. Stop if loss limits are unclear.'
-  : c.includes('bridge') ? 'For a bridge: verify source and destination networks, exact assets, finality, recovery route, and test-transfer support. Never scale an unverified route.'
-  : c.includes('staking')||c.includes('restak')||c.includes('anchor btc')||c.includes('decentralized btc') ? 'For staking: check validator/custody model, slashing, unbonding delay, and queue status. Do not use funds needed before the full exit period.'
-  : c.includes('stable') ? 'For a stable asset: identify collateral, peg mechanism, redemption conditions, and pause controls; check how redemption works during a depeg.'
-  : c.includes('rwa') ? 'For an RWA: locate issuer and backing evidence, jurisdiction limits, investor eligibility, redemption terms, and transfer restrictions.'
-  : c.includes('prediction') ? 'For prediction markets: record the resolution oracle, dispute window, trading fees, position exit route, and any eligibility rules.'
-  : c.includes('insurance') ? 'For insurance: compare covered events with exclusions; identify capital backing, claim evidence required, and the claims payout process.'
-  : c.includes('chain') ? 'For a chain: check official docs for a verifiable testnet or low-risk user action, prerequisites, supported wallet, and whether it is reversible.'
-  : c.includes('payment')||c.includes('crypto card') ? 'For payments: verify supported region and assets, conversion and card fees, custody, refund handling, and failed-payment reversal steps.'
-  : c.includes('governance') ? 'For governance: check who can vote, quorum, proposal rules, execution authority, and any required voting power or transaction fee.'
-  : c.includes('index') ? 'For an index: list constituents, rebalance rules, tracking method, redemption terms, and concentration or tracking-error risks.'
-  : c.includes('otc') ? 'For OTC: verify counterparty identity, settlement asset, escrow, dispute route, and reversibility from project-owned documents.'
-  : 'For this category: use project-owned docs to identify one real action, prerequisites, reversibility, and exit route; if none is documented, stay research-only.';
-  return [
-    `Find the official project docs from a verified project-owned domain; compare the domain and chain against a second project-owned page. Record both links. Planning time estimate: 10–15 min. Cost, gas and protocol fees: unknown.`,
-    `${activity} This is a review task, not a claim that the route exists. Planning time estimate: 15–25 min. Minimums, gas and protocol fees: unknown.`,
-    `Check official announcements and terms for documented eligibility, dates, and claim steps. No live program or reward is established by this snapshot; if no terms exist, skip this step. Planning time estimate: 5–10 min. Eligibility, reward and claim gas: unknown.`,
-    `Before any optional action, confirm network, asset, approvals, quoted fees, withdrawal path, and your own loss limit on the final confirmation screen; stop if any field differs from official docs. Save the source and transaction link. Planning time estimate: 5–10 min. Current gas and protocol fees: unknown. No deposit is recommended.`,
-  ];
-}
 export function buildBoard(snapshot:Snapshot):{rows:Row[]; calibration_ratio:number; calibration_peer_count:number; eligible_count:number;validation:HeldOutValidation} {
   const bySlug=new Map(snapshot.protocols.map(p=>[p.slug,p]));
   const candidates=snapshot.protocols.filter(eligible);
@@ -117,7 +93,7 @@ export function buildBoard(snapshot:Snapshot):{rows:Row[]; calibration_ratio:num
     const comparable=peers.get(p.category?.toLowerCase()??'')??[], scoped=comparable.length>=5?comparable:globalPeers, anchor=calibration(scoped), scope=comparable.length>=5?'category' as const:'all-token-recorded' as const;
     const valuation_inputs:ValuationInputs={tvl_usd:p.tvl_usd,calibration_ratio:anchor,calibration_peer_count:scoped.length,calibration_scope:scope,change_7d:g,bounded_change_7d:g===null?null:bounded,growth_multiplier:growth,listing_date:p.listed_at,tracked_age_days:age,tenure_multiplier:tenure,rounding:'Math.round; minimum 1 USD'};
     const value=calculateRadarValue(valuation_inputs);
-    return {...p,rank:0,token_status:'unrecorded' as const,age_days:age,implied_value_usd:value,calibration_ratio:anchor,calibration_peer_count:scoped.length,calibration_scope:scope,growth_multiplier:+growth.toFixed(4),tenure_multiplier:+tenure.toFixed(4),valuation_inputs,farm_steps:farmPlan(p),valuation_note:`TVL × ${scope==='category'?'category':'global'} peer median market-cap/TVL (${anchor.toFixed(4)}; ${scoped.length} usable peers, 10th–90th percentile tails excluded) × growth (${growth.toFixed(4)}) × tracked-listing-tenure proxy (${tenure.toFixed(4)}), then Math.round with 1 USD minimum. Tracking age is not tokenless age.`};
+    return {...p,rank:0,token_status:'unrecorded' as const,age_days:age,implied_value_usd:value,calibration_ratio:anchor,calibration_peer_count:scoped.length,calibration_scope:scope,growth_multiplier:+growth.toFixed(4),tenure_multiplier:+tenure.toFixed(4),valuation_inputs,...buildFarmPlan(p),valuation_note:`TVL × ${scope==='category'?'category':'global'} peer median market-cap/TVL (${anchor.toFixed(4)}; ${scoped.length} usable peers, 10th–90th percentile tails excluded) × growth (${growth.toFixed(4)}) × tracked-listing-tenure proxy (${tenure.toFixed(4)}), then Math.round with 1 USD minimum. Tracking age measures days since DefiLlama began tracking.`};
   });
   rows.sort((a,b)=>b.implied_value_usd-a.implied_value_usd||a.slug.localeCompare(b.slug,'en'));
   rows.forEach((r,i)=>r.rank=i+1);

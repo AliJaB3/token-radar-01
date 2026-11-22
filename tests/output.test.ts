@@ -12,6 +12,7 @@ import {
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { createContext, runInContext } from "node:vm";
 import { buildDossier } from "../vendor/makefun-board.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -58,8 +59,15 @@ test("preview outputs are deterministic and carry full matching snapshot data", 
       script.slice("window.RADAR_DATA=".length).trim().replace(/;$/, ""),
     );
     assert.deepEqual(data.rows, board.rows);
+    const sealed = JSON.parse(readFileSync(snapshotPath, "utf8"));
+    assert.deepEqual(data.watchlist, sealed.watchlist);
+    assert.deepEqual(data.protocols, sealed.protocols);
     assert.equal(data.watchlist.length, 40);
     assert.equal(data.rows.length, 198);
+    const tokenRecorded = sealed.protocols.filter((row: { gecko_id: string | null; symbol: string | null }) =>
+      row.gecko_id !== null || row.symbol !== null);
+    assert.deepEqual([...data.live].sort((a, b) => a.slug.localeCompare(b.slug)),
+      tokenRecorded.sort((a, b) => a.slug.localeCompare(b.slug)));
     const intersection = data.watchlist.filter((slug: string) =>
       data.rows.some((r: { slug: string }) => r.slug === slug),
     );
@@ -105,31 +113,46 @@ test("dashboard files respect source and offline constraints", () => {
   );
   assert.ok(sourceBytes < 64000, `dashboard source is ${sourceBytes} bytes`);
   for (const p of paths) {
-    const text = readFileSync(resolve(root, "dashboard", p), "utf8");
-    assert.doesNotMatch(text, /(?:https?:\/\/)/, p);
+    const body = readFileSync(resolve(root, "dashboard", p), "utf8");
+    if (p.endsWith(".html") || p.endsWith(".css")) {
+      assert.doesNotMatch(body, /https?:\/\//, p);
+    }
+    if (p.endsWith(".js")) {
+      assert.doesNotMatch(body, /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']https?:\/\//, p);
+      assert.doesNotMatch(body, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(/, p);
+    }
   }
 });
 
-test("interactive views expose every record and connect detail actions to the full snapshot", () => {
-  const app = readFileSync(resolve(root, "dashboard/app.js"), "utf8");
-  const html = readFileSync(resolve(root, "dashboard/index.html"), "utf8");
-  const valuation = readFileSync(
-    resolve(root, "dashboard/00-valuation.js"),
-    "utf8",
-  );
-  assert.match(html, /id="scenario-budget"/);
-  assert.match(html, /id="scenario-gas"/);
-  assert.match(html, /id="scenario-fees"/);
-  assert.match(html, /00-valuation\.js/);
-  for (const amount of ["50", "100", "250"])
-    assert.match(html, new RegExp(`value="${amount}"`));
-  assert.match(valuation, /Math\.max\(1, Math\.round\(raw\)\)/);
-  assert.match(app, /calculateRadarValue/);
-  assert.match(app, /farm_steps/);
-  assert.match(app, /valuation_inputs/);
-  assert.match(app, /function renderScenario/);
-  assert.match(app, /capital \+ .*gas \+ .*protocol fees/);
-  assert.match(app, /Total outlay cannot be estimated/);
+test("emitted source executes in browser scope and recomputes every frozen value", () => {
+  try {
+    const runResult = run(first, true);
+    assert.equal(runResult.status, 0, runResult.stderr);
+    const browser = createContext({ window: {} });
+    runInContext(readFileSync(join(first, "data.js"), "utf8"), browser);
+    const html = readFileSync(join(first, "dashboard/index.html"), "utf8");
+    const scripts = Array.from(html.matchAll(/<script src="([^"]+)"/g), match => match[1]!);
+    assert.ok(scripts.includes("00-valuation.js") && scripts.includes("02-research.js"));
+    for (const path of scripts) assert.ok(existsSync(resolve(first, "dashboard", path)));
+    runInContext(readFileSync(join(first, "dashboard/00-valuation.js"), "utf8"), browser);
+    assert.equal(runInContext(
+      "window.RADAR_DATA.rows.every(row => calculateRadarValue(row.valuation_inputs) === row.implied_value_usd)",
+      browser,
+    ), true);
+    assert.equal(runInContext(`
+      window.RADAR_DATA.rows.every(row =>
+        compareValuation(row.valuation_inputs, window.RADAR_DATA.calibration_ratio,
+          { tvlChange: 0, useGlobal: false, useGrowth: true, useTracking: true }).delta === 0
+      )
+    `, browser), true);
+    runInContext(readFileSync(join(first, "dashboard/02-research.js"), "utf8"), browser);
+    assert.deepEqual(JSON.parse(runInContext("JSON.stringify(generalSources.map(([, url]) => url))", browser)), [
+      "https://ethereum.org/developers/docs/gas/",
+      "https://docs.uniswap.org/concepts/protocol/swaps",
+    ]);
+  } finally {
+    rmSync(first, { recursive: true, force: true });
+  }
 });
 
 test("the vendor is the exact required kit library", () => {
@@ -160,25 +183,12 @@ test("a normal build requires real screenshots and matches the canonical dossier
       const dossier = JSON.parse(
         readFileSync(join(first, "dossier.json"), "utf8"),
       );
-      const helper = readFileSync(
-        resolve(root, "dashboard/00-valuation.js"),
-        "utf8",
-      );
-      const app = readFileSync(resolve(root, "dashboard/app.js"), "utf8");
-      const html = readFileSync(resolve(root, "dashboard/index.html"), "utf8");
-      const css = readFileSync(resolve(root, "dashboard/style.css"), "utf8");
-      assert.ok(
-        dossier.text.includes(helper),
-        "dossier contains the complete executable valuation helper",
-      );
-      assert.ok(
-        dossier.text.includes(app),
-        "dossier contains the complete dashboard application source",
-      );
-      assert.ok(dossier.text.includes(html), "dossier contains the complete HTML source");
-      assert.ok(dossier.text.includes(css), "dossier contains the complete CSS source");
-      assert.ok(Buffer.byteLength(dossier.text, "utf8") <= 65536,
-        "dossier source text, including framing, stays within 65536 bytes");
+      for (const path of files(join(first, "dashboard"))) {
+        const source = readFileSync(join(first, "dashboard", path), "utf8");
+        assert.ok(dossier.text.includes(source), `dossier contains the full source of ${path}`);
+      }
+      assert.ok(Buffer.byteLength(dossier.text, "utf8") < 64000,
+        "complete dossier source, including framing, stays below 64000 bytes");
     } finally {
       rmSync(first, { recursive: true, force: true });
     }

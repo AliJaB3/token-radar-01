@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { snapshotText } from './snapshot.mjs';
 import { buildBoard, eligible, liveProtocols, parseSnapshot, validateHeldOut, type Protocol, type Snapshot } from '../lib/model.ts';
-import { calculateRadarValue, calculateScenario } from '../dashboard/00-valuation.js';
+import { calculateRadarValue, calculateScenario, compareValuation } from '../dashboard/00-valuation.js';
 
 const snapshot=parseSnapshot(snapshotText);
 const result=buildBoard(snapshot);
@@ -28,19 +29,36 @@ test('ranks whole-dollar values monotonically with a stable slug tie-break',()=>
   assert.ok(new Set(result.rows.map(r=>r.implied_value_usd)).size>1);
 });
 
-test('farm plans give bounded concrete category research tasks without asserting live activity',()=>{
-  for(const row of result.rows){
-    assert.equal(row.farm_steps.length,4,row.slug);
-    for(const step of row.farm_steps){assert.ok(step.trim().length>=40&&step.trim().length<=450,row.slug);assert.match(step,/Planning time estimate:/);assert.match(step,/unknown/i);}
-    assert.match(row.farm_steps[2]!,/No live program or reward is established/);
-    assert.doesNotMatch(row.farm_steps.join(' '),/\$(?!0\b)\d/);
-    assert.match(row.farm_steps[0]!,/official project docs.*compare the domain and chain.*Record both links/i);
+test('all rows carry route, entry, exit and stop conditions with honest planning times and costs', () => {
+  const categoryPlans = new Set<string>();
+  for (const row of result.rows) {
+    assert.equal(row.farm_steps.length, 4, row.slug);
+    assert.ok(row.farm_steps.every(step => step.trim().length >= 20 && step.trim().length <= 600), row.slug);
+    const [route, entry, exit, stop] = row.farm_steps;
+    assert.match(route!, /^Identify route · 5–10 min review/);
+    assert.match(entry!, /^Rehearse entry · 10–15 min review.*Live entry gas, fees and minimums are unknown/);
+    assert.match(exit!, /^Rehearse exit · 10–15 min review.*Live exit gas, fees and settlement time are unknown/);
+    assert.match(stop!, /^Set stop rules · 5–10 min review.*Stop if.*Eligibility and rewards are unknown/);
+    assert.doesNotMatch(row.farm_steps.join(' '), /\$\d/);
+    if (!row.farm_sources.length) {
+      assert.match(route!, /project-owned docs/);
+      categoryPlans.add(exit!);
+    }
   }
-  const lending=result.rows.find(r=>r.category?.toLowerCase().includes('lend'));
-  const dex=result.rows.find(r=>r.category?.toLowerCase().includes('dex'));
-  if(lending)assert.match(lending.farm_steps[1]!,/collateral factor, oracle, liquidation threshold, and withdrawal conditions/);
-  if(dex)assert.match(dex.farm_steps[1]!,/pool and both assets.*fee tier, pool depth, exit steps/);
-  assert.ok(result.rows.some(r=>r.farm_steps[1]!==lending?.farm_steps[1]),'category plans differ for actual snapshot categories');
+  assert.ok(categoryPlans.size >= 13);
+  const find = (slug: string) => result.rows.find(row => row.slug === slug)!;
+  assert.match(find('steakhouse-financial').farm_steps[2]!, /Morpho V1 withdrawal queue/);
+  assert.match(find('veda').farm_steps[2]!, /BoringQueue.*maturity, solver deadline and cancellation/);
+  assert.match(find('usdd').farm_steps[2]!, /payback including stability fees.*collateral withdrawal/);
+  assert.match(find('bittensor-dtao').farm_steps[2]!, /alpha back to TAO by unstaking/);
+  assert.match(find('polymarket-international').farm_steps[3]!, /Losing shares can be worth zero/);
+  assert.ok(result.rows.filter(row => row.farm_sources.length).every(row =>
+    row.farm_sources.every(([label, url]) => label.length > 5 && new URL(url).protocol === 'https:')));
+  const lending = result.rows.find(row => row.category === 'Lending')!;
+  assert.match(lending.farm_steps[1]!, /supply without opening debt/i);
+  const dex = result.rows.find(row => row.category === 'Dexs' && row.farm_sources.length === 0)!;
+  assert.match(dex.farm_steps[0]!, /pool and both asset contracts.*fee tier/);
+  assert.match(dex.farm_steps[2]!, /removing liquidity.*both assets/);
 });
 
 test('held-out validation has stable disjoint slug cohorts and compares peer methods with baselines',()=>{
@@ -120,15 +138,75 @@ test('executable formula preserves JS half-up rounding and one-dollar floor at e
   assert.equal(calculateRadarValue({...base,tvl_usd:4.51}),5);
 });
 
-test('scenario worksheet preserves unknowns and bounds invalid hypothetical inputs',()=>{
-  const base={amount:100,days:30,decline:25,entryGas:0.25,entryFee:1.75,exitGas:0.5,exitFee:2};
-  assert.deepEqual(calculateScenario(base),{amount:100,days:30,decline:25,loss:25,knownCosts:4.5,total:104.5,exitUnavailableLoss:102,failureCostUnknown:true});
-  assert.equal(calculateScenario({...base,amount:0}).total,4.5,'zero capital is valid and never divides by zero');
-  assert.equal(calculateScenario({...base,days:null,entryGas:null,entryFee:null,exitGas:null,exitFee:null}).total,null,'empty duration and fees remain explicit unknowns');
-  assert.match(calculateScenario({...base,amount:-1}).error!,/non-negative capital/);
-  assert.match(calculateScenario({...base,days:-1}).error!,/holding duration/);
-  assert.match(calculateScenario({...base,decline:101}).error!,/0% to 100%/);
-  assert.match(calculateScenario({...base,entryGas:NaN}).error!,/Costs must be non-negative/);
+const enteredFarm = {
+  amount: 100, days: 30, decline: 25, entryGas: 0.25, entryFee: 1.75,
+  exitGas: 0.5, exitFee: 2, lossLimit: 30, exitDays: 32,
+};
+
+test('farm worksheet calculates funding, losses, exit proceeds and independent stop gates', () => {
+  assert.deepEqual(calculateScenario(enteredFarm), {
+    entry: 2, exit: 2.5, loss: 25, stressedLoss: 29.5,
+    upfront: 102, total: 104.5, exitValue: 72.5, stranded: 102,
+    uncountedEntryCosts: false, breakEven: 4.5, lossGate: true, timeGate: false,
+  });
+  const stops = calculateScenario({...enteredFarm, lossLimit: 29, exitDays: 30});
+  assert.equal(stops.lossGate, false);
+  assert.equal(stops.timeGate, true);
+  assert.equal(calculateScenario({...enteredFarm, decline: 100, exitGas: 0, exitFee: 0}).exitValue, 0);
+  assert.equal(calculateScenario({...enteredFarm, amount: 0, entryGas: 0.1, entryFee: 0.2,
+    exitGas: 0, exitFee: 0, lossLimit: 0.3}).lossGate, true);
+});
+
+test('farm worksheet keeps zero, blank and invalid inputs distinct', () => {
+  const zero = Object.fromEntries(Object.keys(enteredFarm).map(key => [key, 0]));
+  const blank = Object.fromEntries(Object.keys(enteredFarm).map(key => [key, null]));
+  assert.deepEqual(calculateScenario(zero), {
+    entry: 0, exit: 0, loss: 0, stressedLoss: 0, upfront: 0, total: 0, exitValue: 0,
+    stranded: 0, uncountedEntryCosts: false, breakEven: null, lossGate: true, timeGate: true,
+  });
+  assert.deepEqual(calculateScenario(blank), {
+    entry: null, exit: null, loss: null, stressedLoss: null, upfront: null, total: null, exitValue: null,
+    stranded: null, uncountedEntryCosts: true, breakEven: null, lossGate: null, timeGate: null,
+  });
+  const partial = calculateScenario({...enteredFarm, exitGas: null, entryFee: null, days: null});
+  assert.equal(partial.total, null);
+  assert.equal(partial.loss, 25);
+  assert.equal(partial.stranded, 100.25);
+  assert.equal(partial.uncountedEntryCosts, true);
+  assert.equal(partial.timeGate, null);
+  assert.match(calculateScenario({...enteredFarm, amount: -1}).error!, /USD inputs/);
+  assert.match(calculateScenario({...enteredFarm, days: 2.5}).error!, /whole, non-negative/);
+  assert.match(calculateScenario({...enteredFarm, exitDays: -1}).error!, /whole, non-negative/);
+  assert.match(calculateScenario({...enteredFarm, decline: 101}).error!, /0% to 100%/);
+  assert.match(calculateScenario({...enteredFarm, entryGas: NaN}).error!, /USD inputs/);
+  assert.match(calculateScenario({...enteredFarm, lossLimit: Infinity}).error!, /USD inputs/);
+});
+
+test('comparison variants share the executable formula and preserve all frozen board and validation outputs', () => {
+  const base = {tvlChange: 0, useGlobal: false, useGrowth: true, useTracking: true};
+  const before = JSON.stringify(result);
+  for (const row of result.rows) {
+    const x = row.valuation_inputs;
+    const same = compareValuation(x, result.calibration_ratio, base);
+    assert.equal(same.value, row.implied_value_usd, row.slug);
+    assert.equal(same.delta, 0);
+    const stress = compareValuation(x, result.calibration_ratio,
+      {tvlChange: -25, useGlobal: true, useGrowth: false, useTracking: false});
+    const expected = Math.max(1, Math.round(x.tvl_usd * 0.75 * result.calibration_ratio));
+    assert.equal(stress.value, expected);
+    assert.equal(stress.delta, expected - row.implied_value_usd);
+    assert.equal(compareValuation(x, result.calibration_ratio, {...base, tvlChange: -100}).value, 1);
+    assert.match(compareValuation(x, result.calibration_ratio, {...base, tvlChange: null}).error!, /Enter a TVL change/);
+    for (const tvlChange of [-101, 1001, NaN, Infinity]) {
+      assert.match(compareValuation(x, result.calibration_ratio, {...base, tvlChange}).error!, /must be from/);
+    }
+  }
+  assert.equal(JSON.stringify(result), before);
+  const rows = result.rows.map(({slug, rank, implied_value_usd, valuation_inputs}) =>
+    ({slug, rank, implied_value_usd, valuation_inputs}));
+  const frozenDigest = createHash('sha256').update(JSON.stringify({rows, validation: result.validation})).digest('hex');
+  assert.equal(frozenDigest, '58ae96f9cb5d6c197ee780683c7466dec43a192294fef55552ed10199f03d0db',
+    'ranks, values, valuation inputs and validation match the v5 baseline artifact');
 });
 
 test('growth bounds and tracking-age arithmetic are deterministic',()=>{
