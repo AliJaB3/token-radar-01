@@ -32,8 +32,15 @@ try{
   assert.ok(scenario.includes(board.rows[0].farm_steps[1]),'board shows a concrete category-specific task');
   assert.match(scenario,/planning time estimate/i);
   await page.locator('#scenario-budget').selectOption('100');
-  assert.match(await page.locator('#scenario-action').innerText(),/\$100 hypothetical research envelope/);
-  assert.match(await page.locator('#scenario-action').innerText(),/fee and action amount are unknown/i);
+  assert.match(await page.locator('#scenario-action').innerText(),/Capital cap: \$100\.00/);
+  assert.match(await page.locator('#scenario-action').innerText(),/Network gas: unknown/);
+  assert.match(await page.locator('#scenario-action').innerText(),/Total outlay cannot be estimated/);
+  await page.locator('#scenario-gas').fill('0.25');
+  await page.locator('#scenario-fees').fill('1.75');
+  assert.match(await page.locator('#scenario-action').innerText(),/\$100\.00 capital \+ \$0\.25 gas \+ \$1\.75 protocol fees = \$102\.00/);
+  assert.match(await page.locator('#scenario-action').innerText(),/Capital loss exposure: \$0 to \$100\.00, plus unknown costs/);
+  await page.locator('#scenario-gas').fill('');
+  await page.locator('#scenario-fees').fill('');
   const missingInputRow=board.rows.find(r=>r.change_7d===null||r.listed_at===null);
   assert.ok(missingInputRow,'sealed snapshot has a row exercising missing-input trace rendering');
   await page.locator(`#rows tr[data-slug="${missingInputRow.slug}"]`).click();
@@ -46,13 +53,21 @@ try{
   const intersection=actualCoverage.watchlist.filter((slug)=>actualCoverage.rows.some((row)=>row.slug===slug));
   assert.equal(await page.locator('#coverage-count').innerText(),String(intersection.length));
   assert.equal(await page.locator('#coverage-total').innerText(),'40');
+  await page.locator('.coverage-proof details summary').click();
   assert.ok((await page.locator('#coverage-rule').innerText()).includes('WBTC is Bridge'));
   assert.ok((await page.locator('#coverage-rule').innerText()).includes('No parent/dependency map; none inferred'));
+  await page.locator('.coverage-proof details summary').click();
   await page.locator('#show-official').click();
   assert.equal(await page.locator('#scope').inputValue(),'watch');
   assert.equal(await page.locator('#rows tr').count(),40,'coverage search opens the exact official set');
   await page.locator('#reset').click();
   assert.equal(await page.locator('#rows tr').count(),board.rows.length);
+  assert.equal(await page.locator('#method-panel').isVisible(),false);
+  await page.locator('#method-toggle').focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#method-panel').isVisible(),true,'Method disclosure opens from keyboard');
+  assert.ok((await page.locator('#validation-evidence').innerText()).includes('Listed market-cap reconstruction'));
+  await page.keyboard.press('Enter');
   assert.equal(await page.locator('#method-panel').isVisible(),false);
   assert.equal(await page.locator('#empty').isVisible(),false);
   for(const section of ['liquidity','launch','charts']){
@@ -82,6 +97,10 @@ try{
   assert.ok(await page.locator('.farm-list li').count()>0,'Launch detail includes its model row farm plan');
   await page.locator('.close-detail').click();
   await page.locator('.section-tab[data-section="board"]').click();
+  await page.evaluate(()=>{document.querySelector('.table-scroll').scrollTop=0;scrollTo(0,0)});
+  const desktopVisibility=await page.locator('#rows tr').evaluateAll(rows=>{const table=document.querySelector('.table-scroll').getBoundingClientRect();return{firstRank:rows[0]?.querySelector('.rank-cell').textContent.trim(),visible:rows.filter(row=>{const r=row.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.top>=table.top&&r.bottom<=table.bottom}).length}});
+  assert.equal(desktopVisibility.firstRank,'01','Board screenshot starts with rank 1');
+  assert.ok(desktopVisibility.visible>=5,`Desktop viewport shows five complete unclipped rows: ${desktopVisibility.visible}`);
   async function shot(name){
     let bytes=await page.screenshot({type:'png',animations:'disabled'}),ext='png';
     if(bytes.length>524288){bytes=await page.screenshot({type:'jpeg',quality:88,animations:'disabled'});ext='jpg';}
@@ -99,7 +118,7 @@ try{
   assert.ok((await page.locator('.value-explainer').innerText()).length>80,'Detail explains the record-specific model value');
   assert.match(await page.locator('.model-trace').innerText(),/Recomputed \/ emitted.*MATCH/,'detail executes and compares the displayed value');
   assert.match(await page.locator('.model-trace').innerText(),/Snapshot tracking age only; not tokenless age/i);
-  assert.match(await page.locator('.farm-budget-note').innerText(),/\$100 illustrative scenario only/);
+  assert.match(await page.locator('.farm-budget-note').innerText(),/Hypothetical capital cap: \$100/);
   assert.ok((await page.locator('.farm-list').innerText()).length>80,'Detail includes a conditional research plan');
   assert.ok((await page.locator('.farm-provenance').innerText()).includes('project documentation and routes have not been checked'));
   assert.match(await page.locator('.farm-list').innerText(),/supply market|collateral factor|pool and both assets|withdrawal conditions/i);
@@ -141,7 +160,7 @@ try{
   await page.locator('#watch-filter').click();
   await page.locator('.view-tab[data-view="live"]').click();
   assert.equal(await page.locator('#rows tr').count(),actualCoverage.live.length,'token-recorded switch renders the complete market-data view');
-  assert.match(await page.locator('#scenario-action').innerText(),/Radar only; no farm plan for token rows/,'radar scenario explains its scope in the token-recorded view');
+  assert.match(await page.locator('#scenario-action').innerText(),/Radar planning applies only to records with token fields absent/,'radar scenario explains its scope in the token-recorded view');
   await page.locator('#rows tr').first().locator('[data-watch]').click();
   assert.match(await page.locator('#watch-count').innerText(),/saved · 1 in radar/,'Outside-radar saves do not inflate radar match count');
   await page.locator('#watch-filter').click();
@@ -161,7 +180,13 @@ try{
   await fallbackContext.close();
   await page.locator('#reset').click();
   await page.setViewportSize({width:390,height:844});
+  await page.evaluate(()=>{document.querySelector('.table-scroll').scrollTop=0;scrollTo(0,0)});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Mobile document overflow');
+  const mobileVisibility=await page.locator('#rows tr').evaluateAll(rows=>{const table=document.querySelector('.table-scroll').getBoundingClientRect();return{firstRank:rows[0]?.querySelector('.rank-cell').textContent.trim(),visible:rows.filter(row=>{const r=row.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.top>=table.top&&r.bottom<=table.bottom}).length}});
+  assert.equal(mobileVisibility.firstRank,'01','Mobile board starts with rank 1');
+  assert.ok(mobileVisibility.visible>=1,`Mobile viewport shows one complete unclipped row: ${mobileVisibility.visible}`);
+  const mobileTargets=await page.locator('button, select, input').evaluateAll(controls=>controls.filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0}).map(el=>({label:el.getAttribute('aria-label')||el.textContent||el.id,height:el.getBoundingClientRect().height})));
+  assert.ok(mobileTargets.every(target=>target.height>=44),JSON.stringify(mobileTargets.filter(target=>target.height<44)));
   await page.locator('.section-tab[data-section="charts"]').click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Mobile charts overflow');
   await page.locator('.section-tab[data-section="board"]').click();
