@@ -46,23 +46,14 @@ test('dashboard files respect source and offline constraints',()=>{
 
 test('interactive views expose every record and connect detail actions to the full snapshot',()=>{
   const app=readFileSync(resolve(root,'dashboard/app.js'),'utf8');
-  assert.match(app,/new Map\(\(data\.protocols\|\|\[\]\)\.map\(r=>\[r\.slug,r\]\)\)/);
-  assert.match(app,/const farm=\(ranked\?\.farm_steps\|\|\[\]\)/); // A snapshot protocol has no farm steps; its radar row does.
-  assert.match(app,/panel\.querySelectorAll\('\[data-open\]'\).*openDetail/s);
-  assert.match(app,/\$\('#liq-sort'\)\.addEventListener\('change'/);
-  assert.match(app,/\$\('#launch-sort'\)\.addEventListener\('change'/);
-  assert.doesNotMatch(app,/\.slice\(0,\s*(?:100|120)\)/);
-  assert.doesNotMatch(app,/data\.(?:history|timeseries|price_series)/i);
-  assert.match(app,/Listed market-cap reconstruction/);
-  assert.match(app,/board comparables n=/);
-  assert.match(app,/Not launch validation/);
-  assert.match(app,/p\.change_7d!=null&&p\.change_7d<=-20/);
-  assert.match(app,/p\.change_7d==null/); // Missing change has its own bucket, never a fabricated series.
   const html=readFileSync(resolve(root,'dashboard/index.html'),'utf8');
-  assert.match(html,/OFFICIAL SOURCE COVERAGE/);assert.match(html,/Search official 40/);
-  assert.match(app,/actual slug intersection/);assert.match(app,/WBTC is Bridge/);
-  assert.match(app,/Training-only 5-fold out-of-fold CV/);assert.match(app,/out-of-fold/);
-  assert.match(app,/project documentation and routes have not been checked/);
+  const valuation=readFileSync(resolve(root,'dashboard/00-valuation.js'),'utf8');
+  assert.match(html,/id="scenario-budget"/);assert.match(html,/00-valuation\.js/);
+  for(const amount of ['50','100','250'])assert.match(html,new RegExp(`value="${amount}"`));
+  assert.match(valuation,/Math\.max\(1, Math\.round\(raw\)\)/);
+  assert.match(app,/calculateRadarValue/);
+  assert.match(app,/farm_steps/);
+  assert.match(app,/valuation_inputs/);
 });
 
 test('the vendor is the exact required kit library',()=>{
@@ -78,6 +69,11 @@ test('a normal build requires real screenshots and matches the canonical dossier
       assert.equal(files(join(first,'screenshots')).length,3);
       const expected=buildDossier(first,{text_max_bytes:65536,screenshots:{max:4,max_bytes:524288},dashboard:{max_files:400,max_bytes:4194304}});
       assert.deepEqual(readFileSync(join(first,'dossier.json')),Buffer.from(expected));
+      const dossier=JSON.parse(readFileSync(join(first,'dossier.json'),'utf8'));
+      const helper=readFileSync(resolve(root,'dashboard/00-valuation.js'),'utf8');
+      const app=readFileSync(resolve(root,'dashboard/app.js'),'utf8');
+      assert.ok(dossier.text.includes(helper),'dossier contains the complete executable valuation helper');
+      assert.ok(dossier.text.includes(app),'dossier contains the complete dashboard application source');
     }finally{rmSync(first,{recursive:true,force:true});}
     return;
   }

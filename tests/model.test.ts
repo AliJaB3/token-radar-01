@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { snapshotText } from './snapshot.mjs';
 import { buildBoard, eligible, liveProtocols, parseSnapshot, validateHeldOut, type Protocol, type Snapshot } from '../lib/model.ts';
+import { calculateRadarValue } from '../dashboard/00-valuation.js';
 
 const snapshot=parseSnapshot(snapshotText);
 const result=buildBoard(snapshot);
@@ -27,14 +28,19 @@ test('ranks whole-dollar values monotonically with a stable slug tie-break',()=>
   assert.ok(new Set(result.rows.map(r=>r.implied_value_usd)).size>1);
 });
 
-test('farm plans are category-aware, disclose unknown costs and risks, and make no unsupported claims',()=>{
+test('farm plans give bounded concrete category research tasks without asserting live activity',()=>{
   for(const row of result.rows){
-    assert.ok(row.farm_steps.length>=3&&row.farm_steps.length<=12,row.slug);
-    for(const step of row.farm_steps){assert.ok(step.trim().length>=20&&step.trim().length<=600,row.slug);assert.match(step,/Cost estimate:/i);assert.match(step,/Time estimate:/);}
-    assert.match(row.farm_steps[2]!,/unknown/);
+    assert.equal(row.farm_steps.length,4,row.slug);
+    for(const step of row.farm_steps){assert.ok(step.trim().length>=40&&step.trim().length<=450,row.slug);assert.match(step,/Planning time estimate:/);assert.match(step,/unknown/i);}
+    assert.match(row.farm_steps[2]!,/No live program or reward is established/);
     assert.doesNotMatch(row.farm_steps.join(' '),/\$(?!0\b)\d/);
-    assert.match(row.farm_steps.join(' '),/risk|unknown/i);
+    assert.match(row.farm_steps[0]!,/official project docs.*compare the domain and chain.*Record both links/i);
   }
+  const lending=result.rows.find(r=>r.category?.toLowerCase().includes('lend'));
+  const dex=result.rows.find(r=>r.category?.toLowerCase().includes('dex'));
+  if(lending)assert.match(lending.farm_steps[1]!,/collateral factor, oracle, liquidation threshold, and withdrawal conditions/);
+  if(dex)assert.match(dex.farm_steps[1]!,/pool and both assets.*fee tier, pool depth, exit steps/);
+  assert.ok(result.rows.some(r=>r.farm_steps[1]!==lending?.farm_steps[1]),'category plans differ for actual snapshot categories');
 });
 
 test('held-out validation has stable disjoint slug cohorts and compares peer methods with baselines',()=>{
@@ -84,6 +90,34 @@ test('numeric model uses category peers, trims percentile tails, and treats miss
   assert.equal(row.growth_multiplier,1);
   assert.equal(row.tenure_multiplier,1);
   assert.equal(row.implied_value_usd,600);
+  assert.equal(row.valuation_inputs.change_7d,null);
+  assert.equal(row.valuation_inputs.bounded_change_7d,null);
+  assert.equal(row.valuation_inputs.listing_date,null);
+  assert.equal(row.valuation_inputs.tracked_age_days,null);
+  assert.equal(calculateRadarValue(row.valuation_inputs),row.implied_value_usd);
+});
+
+test('every snapshot row output is reproduced from its emitted inputs with exact rounding parity',()=>{
+  for(const row of result.rows){
+    const x=row.valuation_inputs;
+    assert.equal(x.tvl_usd,row.tvl_usd,row.slug);
+    assert.equal(x.calibration_ratio,row.calibration_ratio,row.slug);
+    assert.equal(x.calibration_peer_count,row.calibration_peer_count,row.slug);
+    assert.equal(x.calibration_scope,row.calibration_scope,row.slug);
+    assert.equal(x.change_7d,row.change_7d,row.slug);
+    assert.equal(x.listing_date,row.listed_at,row.slug);
+    assert.equal(x.tracked_age_days,row.age_days,row.slug);
+    assert.equal(calculateRadarValue(x),row.implied_value_usd,`valuation divergence for ${row.slug}`);
+    assert.equal(row.implied_value_usd,Math.max(1,Math.round(x.tvl_usd*x.calibration_ratio*x.growth_multiplier*x.tenure_multiplier)));
+  }
+});
+
+test('executable formula preserves JS half-up rounding and one-dollar floor at edge values',()=>{
+  const base={calibration_ratio:1,calibration_peer_count:5,calibration_scope:'category' as const,change_7d:null,bounded_change_7d:null,growth_multiplier:1,listing_date:null,tracked_age_days:null,tenure_multiplier:1,rounding:'Math.round; minimum 1 USD' as const};
+  assert.equal(calculateRadarValue({...base,tvl_usd:0.49}),1);
+  assert.equal(calculateRadarValue({...base,tvl_usd:4.49}),4);
+  assert.equal(calculateRadarValue({...base,tvl_usd:4.5}),5);
+  assert.equal(calculateRadarValue({...base,tvl_usd:4.51}),5);
 });
 
 test('growth bounds and tracking-age arithmetic are deterministic',()=>{
