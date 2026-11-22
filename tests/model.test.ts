@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { snapshotText } from './snapshot.mjs';
 import { buildBoard, eligible, liveProtocols, parseSnapshot, validateHeldOut, type Protocol, type Snapshot } from '../lib/model.ts';
-import { calculateRadarValue } from '../dashboard/00-valuation.js';
+import { calculateRadarValue, calculateScenario } from '../dashboard/00-valuation.js';
 
 const snapshot=parseSnapshot(snapshotText);
 const result=buildBoard(snapshot);
@@ -118,6 +118,17 @@ test('executable formula preserves JS half-up rounding and one-dollar floor at e
   assert.equal(calculateRadarValue({...base,tvl_usd:4.49}),4);
   assert.equal(calculateRadarValue({...base,tvl_usd:4.5}),5);
   assert.equal(calculateRadarValue({...base,tvl_usd:4.51}),5);
+});
+
+test('scenario worksheet preserves unknowns and bounds invalid hypothetical inputs',()=>{
+  const base={amount:100,days:30,decline:25,entryGas:0.25,entryFee:1.75,exitGas:0.5,exitFee:2};
+  assert.deepEqual(calculateScenario(base),{amount:100,days:30,decline:25,loss:25,knownCosts:4.5,total:104.5,exitUnavailableLoss:102,failureCostUnknown:true});
+  assert.equal(calculateScenario({...base,amount:0}).total,4.5,'zero capital is valid and never divides by zero');
+  assert.equal(calculateScenario({...base,days:null,entryGas:null,entryFee:null,exitGas:null,exitFee:null}).total,null,'empty duration and fees remain explicit unknowns');
+  assert.match(calculateScenario({...base,amount:-1}).error!,/non-negative capital/);
+  assert.match(calculateScenario({...base,days:-1}).error!,/holding duration/);
+  assert.match(calculateScenario({...base,decline:101}).error!,/0% to 100%/);
+  assert.match(calculateScenario({...base,entryGas:NaN}).error!,/Costs must be non-negative/);
 });
 
 test('growth bounds and tracking-age arithmetic are deterministic',()=>{

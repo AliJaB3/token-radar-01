@@ -1,114 +1,114 @@
 <!doctype html>
 <html lang="en"
-  ><head
-    ><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="dark light" /><meta name="description" content="Snapshot-grounded radar for unrecorded protocol token fields, relative implied value, and cautious participation plans." /><title>Token Radar: Snapshot research</title
-    ><link rel="stylesheet" href="style.css" /><script src="../data.js" defer></script
-    ><script src="00-valuation.js" defer></script
-    ><script src="app.js" defer></script
-  ></head>
-  <body
-    ><a class="skip" href="#main">Skip to radar</a>
-    <header class="topbar"
-      ><a class="brand" href="#board" aria-label="Token Radar home"
-        ><span class="brand-mark" aria-hidden="true">◉</span><span>TOKEN<span class="brand-light">RADAR</span></span></a
-      ><div class="top-meta"><span class="live-dot"></span><span>SNAPSHOT MODE</span><span class="meta-sep">/</span><span id="snapshot-date">Loading</span></div
-      ><button id="method-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="method-panel"> Method </button></header
-    >
-    <main id="main">
-      <section class="hero" aria-labelledby="page-title"
-        ><div class="hero-copy"
-          ><p class="eyebrow"><span class="eyebrow-line"></span>INDEPENDENT PROTOCOL RESEARCH <span class="hero-separator">/</span> SEALED SNAPSHOT </p><h1 id="page-title">Token <em>Radar</em></h1
-          ><p class="hero-sub"> Missing token fields do not prove token absence or issuance. </p></div
-        ><div class="hero-stamp"
-          ><span class="stamp-orbit">◉</span><span>RESEARCH TERMINAL<br />OFFLINE · SNAPSHOT ONLY</span></div
-        ></section
-      >
-      <section class="stats" aria-label="Snapshot summary"
-        ><div><span class="stat-label">RADAR UNIVERSE</span><strong id="count-radar">Loading</strong><span class="stat-foot">eligible records</span></div
-        ><div><span class="stat-label">OFFICIAL WATCHLIST FLOOR</span><strong id="count-watch">Loading</strong><span class="stat-foot">radar records · all covered</span></div
-        ><div><span class="stat-label">TOKEN RECORDED</span><strong id="count-live">Loading</strong><span class="stat-foot">separate market view</span></div
-        ><div class="stat-source"><span class="stat-label">DATA CUT</span><strong id="count-date">Loading</strong><span class="stat-foot" id="source-line">Frozen input snapshot</span></div></section
-      >
-      <section id="method-panel" class="method-panel" hidden aria-label="Valuation method"
-        ><div><p class="eyebrow">THE MODEL · REVIEWABLE ASSUMPTIONS</p><h2>Relative implied value</h2><p id="method-copy"></p></div><aside><strong>What this cannot tell you</strong><p> No issuance timing, supply, revenue, dilution, legal, incentive, or safety data. Values are estimates, not targets or prices. </p></aside> <section id="validation-evidence" class="validation-evidence" aria-label="Held-out valuation validation"></section
-      ></section>
-      <nav class="view-tabs" aria-label="Protocol view"
-        ><button class="view-tab active" data-view="radar" aria-pressed="true"> Launch radar <span id="tab-radar-count">Loading</span></button
-        ><button class="view-tab" data-view="live" aria-pressed="false"> Token recorded <span id="tab-live-count">Loading</span></button></nav
-      >
-      <nav class="section-nav" aria-label="Dashboard sections"><button class="section-tab active" type="button" data-section="board" aria-current="page"> Board</button><button class="section-tab" type="button" data-section="liquidity"> Liquidity</button><button class="section-tab" type="button" data-section="launch"> Launch</button><button class="section-tab" type="button" data-section="charts"> Charts </button></nav>
-      <section class="workspace" id="board" aria-label="Protocol ranking"
-        ><div class="board-head"
-          ><div><p class="eyebrow">RANKED BY IMPLIED VALUE</p><h2 id="board-title">The radar board</h2></div
-          ><div class="board-head-note"
-            ><span class="rank-mark">01 /</span><span>Value is a model output.<br />Every row opens a research card.</span></div
-          ></div
-        ><div class="toolbar"
-          ><label class="search-wrap"><span class="sr-only">Search protocols</span><span class="search-icon" aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search name, category or chain" autocomplete="off" /></label
-          ><label class="select-wrap"
-            ><span class="sr-only">Filter by category</span
-            ><select id="category"
-              ><option value="">All categories</option></select
-            ></label
-          ><label class="select-wrap"
-            ><span class="sr-only">Filter by chain</span
-            ><select id="chain"
-              ><option value="">All chains</option></select
-            ></label
-          ><label class="select-wrap"
-            ><span class="sr-only">Filter by record status</span
-            ><select id="scope"
-              ><option value="all">All radar records</option
-              ><option value="watch">Official watchlist floor</option
-              ><option value="early">Below floor discoveries</option></select
-            ></label
-          ><button id="watch-filter" class="reset-button" type="button" aria-pressed="false">
-            ★ My watchlist
-            <span id="watch-count">0 saved · 0 in radar</span></button
-          ><button id="reset" class="reset-button" type="button">Reset</button></div
-        ><p class="snapshot-note">
-          Frozen snapshot · No live prices, pool liquidity, launches, or holder data
-          <span id="watch-storage-note" aria-live="polite">Saved on this device</span></p
-        ><div class="table-summary"
-          ><span id="results-label" aria-live="polite">Loading snapshot…</span><span>Sort by <button class="sort-button" data-sort="implied_value_usd" aria-label="Sort by implied value descending"> Implied value ↓</button><button class="sort-button" data-sort="tvl_usd" aria-label="Sort by TVL descending"> TVL</button><button class="sort-button" data-sort="change_7d" aria-label="Sort by seven-day TVL change descending"> 7D change </button></span></div
-        ><div class="table-scroll"
-          ><table
-            ><thead
-              ><tr
-                ><th scope="col">RANK</th><th scope="col">PROTOCOL</th><th scope="col">CATEGORY · CHAIN</th><th scope="col" class="num">TVL</th><th scope="col" class="num">7D</th><th scope="col" class="num">IMPLIED VALUE</th><th scope="col">RECORD</th><th scope="col"><span class="sr-only">Details</span></th></tr
-              ></thead
-            ><tbody id="rows"></tbody></table></div
-        ><div id="empty" class="empty-state" hidden><span>⌁</span><strong>No protocols match this view.</strong><button id="clear-empty" type="button">Clear filters</button></div
-        ><div class="board-foot"
-          ><span>Snapshot is frozen at <b id="footer-date">Loading</b></span
-          ><span>Values shown in USD · <b>not token prices</b></span></div
-        ></section
-      ><section class="coverage-proof" aria-label="Official watchlist coverage"
-        ><div class="coverage-count"
-          ><span class="eyebrow">OFFICIAL SOURCE COVERAGE</span><strong><span id="coverage-count">Loading</span> / <span id="coverage-total">Loading</span></strong
-          ><span class="coverage-label">official watchlist records covered</span></div
-        ><div class="coverage-copy"><p id="coverage-summary"></p><details><summary>Coverage methodology</summary><p id="coverage-rule"></p><p id="coverage-source"></p></details></div><button id="show-official" type="button">Search official 40</button></section
-      ><aside class="action-scenario" aria-label="Conditional research action and hypothetical budget scenario"
-        ><div class="scenario-heading"
-          ><span class="eyebrow">NEXT CONDITIONAL RESEARCH STEP</span><label for="scenario-budget">Illustrative budget scenario</label
-          ><select id="scenario-budget"
-            ><option value="50">$50 scenario only</option
-            ><option value="100">$100 scenario only</option
-            ><option value="250">$250 scenario only</option></select
-          ><label for="scenario-gas">Verified gas estimate, USD</label><input id="scenario-gas" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Unknown" aria-describedby="scenario-help" /><label for="scenario-fees">Verified protocol fees, USD</label><input id="scenario-fees" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Unknown" aria-describedby="scenario-help" /></div
-        ><div id="scenario-action" aria-live="polite"></div><p id="scenario-help" class="scenario-limit"> User-selected inputs only. Enter costs from a verified route. Empty cost fields remain unknown. </p></aside
-      >
-      <section id="insights" class="insights" hidden aria-live="polite"></section>
-      <section class="method-strip"
-        ><span class="strip-icon">↗</span><p><b>Review model assumptions.</b> TVL, 7-day change, and tracking age inform estimates; no airdrop or token absence is verified. </p><button id="method-open" type="button"> See assumptions <span aria-hidden="true">→</span></button></section
-      >
-      <footer
-        ><div class="brand footer-brand"
-          ><span class="brand-mark">◉</span><span>TOKEN<span class="brand-light">RADAR</span></span></div
-        ><p>Independent research<br />Snapshot may be stale.</p><p class="footer-right">No network requests</p></footer
-      ></main
-    >
-    <dialog id="detail" aria-labelledby="detail-title"
-      ><div class="detail-shell"><button class="close-detail" type="button" aria-label="Close protocol details"> × </button><div id="detail-content"></div></div
-    ></dialog> </body
+><head
+><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="dark light" /><meta name="description" content="Offline radar for snapshot token fields and relative implied value." /><title>Token Radar: Snapshot research</title
+><link rel="stylesheet" href="style.css" /><script src="../data.js" defer></script
+><script src="00-valuation.js" defer></script
+><script src="app.js" defer></script
+></head>
+<body
+><a class="skip" href="#main">Skip to board</a>
+<header class="topbar"
+><a class="brand" href="#board" aria-label="Token Radar home"
+><span class="brand-mark" aria-hidden="true">◉</span><span>TOKEN<span class="brand-light">RADAR</span></span></a
+><div class="top-meta"><span class="live-dot"></span><span>SNAPSHOT MODE</span><span class="meta-sep">/</span><span id="snapshot-date">Loading</span></div
+><button id="method-toggle" class="quiet-button" type="button" aria-expanded="false" aria-controls="method-panel"> Method </button></header
+>
+<main id="main">
+<section class="hero" aria-labelledby="page-title"
+><div class="hero-copy"
+><p class="eyebrow"><span class="eyebrow-line"></span>PROTOCOL RESEARCH <span class="hero-separator">/</span> SNAPSHOT </p><h1 id="page-title">Token <em>Radar</em></h1
+><p class="hero-sub"> Missing token fields do not prove token absence or issuance. </p></div
+><div class="hero-stamp"
+><span class="stamp-orbit">◉</span><span>OFFLINE<br />SNAPSHOT ONLY</span></div
+></section
+>
+<section class="stats" aria-label="Snapshot"
+><div><span class="stat-label">RADAR UNIVERSE</span><strong id="count-radar">Loading</strong><span class="stat-foot">eligible records</span></div
+><div><span class="stat-label">OFFICIAL WATCHLIST</span><strong id="count-watch">Loading</strong><span class="stat-foot">covered radar records</span></div
+><div><span class="stat-label">TOKEN RECORDED</span><strong id="count-live">Loading</strong><span class="stat-foot">market view</span></div
+><div class="stat-source"><span class="stat-label">DATA CUT</span><strong id="count-date">Loading</strong><span class="stat-foot" id="source-line">Frozen snapshot</span></div></section
+>
+<section id="method-panel" class="method-panel" hidden aria-label="Valuation method"
+><div><p class="eyebrow">MODEL ASSUMPTIONS</p><h2>Relative implied value</h2><p id="method-copy"></p></div><aside><strong>Not measured</strong><p> No timing, supply, revenue, dilution, legal, incentives, or safety data. Estimates are not targets or prices. </p></aside> <section id="validation-evidence" class="validation-evidence" aria-label="Held-out validation"></section
+></section>
+<nav class="view-tabs" aria-label="Views"
+><button class="view-tab active" data-view="radar" aria-pressed="true"> Launch radar <span id="tab-radar-count">Loading</span></button
+><button class="view-tab" data-view="live" aria-pressed="false"> Token recorded <span id="tab-live-count">Loading</span></button></nav
+>
+<nav class="section-nav" aria-label="Sections"><button class="section-tab active" type="button" data-section="board" aria-current="page"> Board</button><button class="section-tab" type="button" data-section="liquidity"> Liquidity</button><button class="section-tab" type="button" data-section="launch"> Launch</button><button class="section-tab" type="button" data-section="charts"> Charts </button></nav>
+<section class="workspace" id="board" aria-label="Ranking"
+><div class="board-head"
+><div><p class="eyebrow">RANKED BY IMPLIED VALUE</p><h2 id="board-title">The radar board</h2></div
+><div class="board-head-note"
+><span class="rank-mark">01 /</span><span>Model output.<br />Select a row for details.</span></div
+></div
+><div class="toolbar"
+><label class="search-wrap"><span class="sr-only">Search protocols</span><span class="search-icon" aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search name, category, chain" autocomplete="off" /></label
+><label class="select-wrap"
+><span class="sr-only">Filter by category</span
+><select id="category"
+><option value="">All categories</option></select
+></label
+><label class="select-wrap"
+><span class="sr-only">Filter by chain</span
+><select id="chain"
+><option value="">All chains</option></select
+></label
+><label class="select-wrap"
+><span class="sr-only">Filter by record status</span
+><select id="scope"
+><option value="all">All records</option
+><option value="watch">Watchlist</option
+><option value="early">Discoveries</option></select
+></label
+><button id="watch-filter" class="reset-button" type="button" aria-pressed="false">
+★ My watchlist
+<span id="watch-count">0 saved · 0 in radar</span></button
+><button id="reset" class="reset-button" type="button">Reset</button></div
+><p class="snapshot-note">
+Frozen snapshot · No live price, liquidity, launch, or holders
+<span id="watch-storage-note" aria-live="polite">Saved on this device</span></p
+><div class="table-summary"
+><span id="results-label" aria-live="polite">Loading…</span><span>Sort by <button class="sort-button" data-sort="implied_value_usd" aria-label="Sort by implied value descending"> Implied value ↓</button><button class="sort-button" data-sort="tvl_usd" aria-label="Sort by TVL descending"> TVL</button><button class="sort-button" data-sort="change_7d" aria-label="Sort by seven-day TVL change descending"> 7D change </button></span></div
+><div class="table-scroll"
+><table
+><thead
+><tr
+><th scope="col">RANK</th><th scope="col">PROTOCOL</th><th scope="col">CATEGORY · CHAIN</th><th scope="col" class="num">TVL</th><th scope="col" class="num">7D</th><th scope="col" class="num">IMPLIED VALUE</th><th scope="col">RECORD</th><th scope="col"><span class="sr-only">Details</span></th></tr
+></thead
+><tbody id="rows"></tbody></table></div
+><div id="empty" class="empty-state" hidden><span>⌁</span><strong>No matching protocols.</strong><button id="clear-empty" type="button">Clear filters</button></div
+><div class="board-foot"
+><span>Snapshot date: <b id="footer-date">Loading</b></span
+><span>USD values · <b>not token prices</b></span></div
+></section
+><section class="coverage-proof" aria-label="Official coverage"
+><div class="coverage-count"
+><span class="eyebrow">OFFICIAL SOURCE COVERAGE</span><strong><span id="coverage-count">Loading</span> / <span id="coverage-total">Loading</span></strong
+><span class="coverage-label">official records covered</span></div
+><div class="coverage-copy"><p id="coverage-summary"></p><details><summary>How coverage is counted</summary><p id="coverage-rule"></p><p id="coverage-source"></p></details></div><button id="show-official" type="button">Search official list</button></section
+><aside class="action-scenario" aria-label="Scenario"
+><details class="scenario-controls"><summary>Edit scenario inputs</summary><div class="scenario-heading"
+><span class="eyebrow">NEXT RESEARCH STEP</span><label for="scenario-budget">Hypothetical capital</label
+><select id="scenario-budget"
+><option value="50">$50 scenario only</option
+><option value="100">$100 scenario only</option
+><option value="250">$250 scenario only</option></select
+><label for="scenario-gas">Entry gas, USD</label><input id="scenario-gas" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Unknown" aria-describedby="scenario-help" /><label for="scenario-fees">Entry fee, USD</label><input id="scenario-fees" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Unknown" aria-describedby="scenario-help" /><label for="scenario-exit-gas">Exit gas, USD</label><input id="scenario-exit-gas" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Unknown" aria-describedby="scenario-help" /><label for="scenario-exit-fees">Exit fee, USD</label><input id="scenario-exit-fees" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Unknown" aria-describedby="scenario-help" /><label for="scenario-days">Your hold time, days</label><input id="scenario-days" type="number" min="0" step="1" inputmode="numeric" placeholder="Not set" aria-describedby="scenario-help" /><label for="scenario-shock">Asset decline, %</label><input id="scenario-shock" type="number" min="0" max="100" step="1" inputmode="decimal" value="20" aria-describedby="scenario-help" /></div></details
+><div id="scenario-action" aria-live="polite"></div><p id="scenario-help" class="scenario-limit"> Hypothetical user inputs, not quotes or recommendations. Empty costs are unknown. Hold time does not indicate eligibility. Volatility, failed-transaction gas, and unavailable exits add uncertainty. Not a forecast. </p></aside
+>
+<section id="insights" class="insights" hidden aria-live="polite"></section>
+<section class="method-strip"
+><span class="strip-icon">↗</span><p><b>Review the model.</b> TVL, 7-day change, and tracking age inform estimates. Token absence and airdrops are unverified. </p><button id="method-open" type="button"> See assumptions <span aria-hidden="true">→</span></button></section
+>
+<footer
+><div class="brand footer-brand"
+><span class="brand-mark">◉</span><span>TOKEN<span class="brand-light">RADAR</span></span></div
+><p>Independent research<br />Snapshot may be stale.</p><p class="footer-right">No network requests</p></footer
+></main
+>
+<dialog id="detail" aria-labelledby="detail-title"
+><div class="detail-shell"><button class="close-detail" type="button" aria-label="Close protocol details"> × </button><div id="detail-content"></div></div
+></dialog> </body
 ></html>
