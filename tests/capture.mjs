@@ -25,6 +25,16 @@ try{
   const url=pathToFileURL(resolve(root,'out/dashboard/index.html')).href;
   await page.goto(url);await page.waitForSelector('#rows tr');
   const board=JSON.parse(readFileSync(resolve(root,'out/board.json'),'utf8'));
+  const actualCoverage=JSON.parse(readFileSync(resolve(root,'out/data.js'),'utf8').slice('window.RADAR_DATA='.length).trim().replace(/;$/,''));
+  const intersection=actualCoverage.watchlist.filter((slug)=>actualCoverage.rows.some((row)=>row.slug===slug));
+  assert.equal(await page.locator('#coverage-count').innerText(),String(intersection.length));
+  assert.equal(await page.locator('#coverage-total').innerText(),'40');
+  assert.ok((await page.locator('#coverage-rule').innerText()).includes('WBTC is Bridge'));
+  assert.ok((await page.locator('#coverage-rule').innerText()).includes('No parent/dependency map exists'));
+  await page.locator('#show-official').click();
+  assert.equal(await page.locator('#scope').inputValue(),'watch');
+  assert.equal(await page.locator('#rows tr').count(),40,'coverage search opens the exact official set');
+  await page.locator('#reset').click();
   assert.equal(await page.locator('#rows tr').count(),board.rows.length);
   assert.equal(await page.locator('#method-panel').isVisible(),false);
   assert.equal(await page.locator('#empty').isVisible(),false);
@@ -64,11 +74,17 @@ try{
     console.log(`${name}.${ext}: ${bytes.length} bytes; 1440 × 1000`);
   }
   await shot('1-board');
+  await page.locator('#category').selectOption('Lending');
+  assert.ok((await page.locator('#rows tr').count())<board.rows.length);
   await page.locator('#rows tr').first().press('Enter');
   await page.waitForSelector('#detail[open]');
   assert.equal(await page.locator('.farm-list li').count(),board.rows[0].farm_steps.length);
   assert.ok((await page.locator('.value-explainer').innerText()).length>80,'Detail explains the record-specific model value');
   assert.ok((await page.locator('.farm-list').innerText()).length>80,'Detail includes a conditional research plan');
+  assert.ok((await page.locator('.farm-provenance').innerText()).includes('project documentation and routes have not been checked'));
+  assert.match(await page.locator('.farm-list').innerText(),/supply markets|collateral factors|withdrawal rules/i);
+  assert.match(await page.locator('.farm-list').innerText(),/Cost estimate:.*unknown/i);
+  assert.match(await page.locator('.farm-list').innerText(),/Time estimate:/i);
   const detailViewport=await page.locator('#detail').boundingBox();
   const valueBox=await page.locator('.value-explainer').boundingBox();
   const planBox=await page.locator('.farm-list').boundingBox();
@@ -76,8 +92,6 @@ try{
   assert.ok(planBox.y<detailViewport.y+detailViewport.height,'Conditional farm plan begins in the visible detail viewport');
   await shot('2-detail');
   await page.keyboard.press('Escape');
-  await page.locator('#category').selectOption('Lending');
-  assert.ok((await page.locator('#rows tr').count())<board.rows.length);
   await shot('3-filtered');
   await page.locator('#search').fill('no protocol has this exact name');
   assert.equal(await page.locator('#empty').isVisible(),true);

@@ -30,7 +30,7 @@ test('ranks whole-dollar values monotonically with a stable slug tie-break',()=>
 test('farm plans are category-aware, disclose unknown costs and risks, and make no unsupported claims',()=>{
   for(const row of result.rows){
     assert.ok(row.farm_steps.length>=3&&row.farm_steps.length<=12,row.slug);
-    for(const step of row.farm_steps){assert.ok(step.trim().length>=20&&step.trim().length<=600,row.slug);assert.match(step,/Cost estimate:|capital at risk:|Opportunity cost:/i);assert.match(step,/Time estimate:/);}
+    for(const step of row.farm_steps){assert.ok(step.trim().length>=20&&step.trim().length<=600,row.slug);assert.match(step,/Cost estimate:/i);assert.match(step,/Time estimate:/);}
     assert.match(row.farm_steps[2]!,/unknown/);
     assert.doesNotMatch(row.farm_steps.join(' '),/\$(?!0\b)\d/);
     assert.match(row.farm_steps.join(' '),/risk|unknown/i);
@@ -52,6 +52,16 @@ test('held-out validation has stable disjoint slug cohorts and compares peer met
   assert.ok([...validation.train_slugs,...validation.holdout_slugs].every(s=>actual.has(s)));
   assert.deepEqual([validation.strategy.mae_log10,validation.global_peer_median.mae_log10,validation.tvl_equals_market_cap.mae_log10],[0.7461,0.6628,0.814]);
   assert.ok(validation.strategy.mae_log10>validation.global_peer_median.mae_log10); // Preserve and report the weaker observed model result.
+  const cv=validation.training_cv;
+  assert.equal(cv.fit_count,94);assert.equal(cv.validation_count,94);assert.equal(cv.folds,5);
+  assert.deepEqual(cv.fold_validation_counts,[15,22,14,28,15]);
+  assert.equal(cv.fold_fit_counts.length,5);
+  assert.ok(cv.fold_validation_counts.every((n,i)=>n>0&&n+cv.fold_fit_counts[i]===cv.fit_count));
+  assert.equal(cv.fold_validation_counts.reduce((a,b)=>a+b,0),cv.validation_count);
+  assert.deepEqual([cv.category_global.mae_log10,cv.category_global.median_ape,cv.category_global.within_2x],[0.8414,0.8845,0.2447]);
+  assert.deepEqual([cv.global_peer_median.mae_log10,cv.global_peer_median.median_ape,cv.global_peer_median.within_2x],[0.8132,0.8958,0.2766]);
+  assert.deepEqual([cv.tvl_equals_market_cap.mae_log10,cv.tvl_equals_market_cap.median_ape,cv.tvl_equals_market_cap.within_2x],[0.9716,3.8883,0.1915]);
+  assert.equal(cv.category_global.n,94);
 });
 
 test('token-recorded protocols remain out of the implied-value board',()=>{

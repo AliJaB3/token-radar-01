@@ -25,8 +25,11 @@ test('preview outputs are deterministic and carry full matching snapshot data',(
     const data=JSON.parse(script.slice('window.RADAR_DATA='.length).trim().replace(/;$/,''));
     assert.deepEqual(data.rows,board.rows);
     assert.equal(data.watchlist.length,40);assert.equal(data.rows.length,198);
-    assert.ok(data.watchlist.every((slug:string)=>data.rows.some((r:{slug:string})=>r.slug===slug)));
+    const intersection=data.watchlist.filter((slug:string)=>data.rows.some((r:{slug:string})=>r.slug===slug));
+    assert.equal(intersection.length,40,'coverage numerator is the actual watchlist/board slug intersection');
+    assert.ok(data.watchlist.every((slug:string)=>intersection.includes(slug)));
     assert.deepEqual(data.validation,board.validation);
+    assert.equal(data.validation.training_cv.validation_count,94);
     assert.equal(data.validation.train_count+data.validation.holdout_count,128);
     assert.equal(data.validation.strategy.n,data.validation.holdout_count);
     assert.ok(data.validation.holdout_slugs.every((slug:string)=>!data.validation.train_slugs.includes(slug)));
@@ -50,11 +53,16 @@ test('interactive views expose every record and connect detail actions to the fu
   assert.match(app,/\$\('#launch-sort'\)\.addEventListener\('change'/);
   assert.doesNotMatch(app,/\.slice\(0,\s*(?:100|120)\)/);
   assert.doesNotMatch(app,/data\.(?:history|timeseries|price_series)/i);
-  assert.match(app,/Held-out listed market-cap check/);
-  assert.match(app,/board global comparables n=/);
-  assert.match(app,/Not a launch-valuation test/);
+  assert.match(app,/Listed market-cap reconstruction/);
+  assert.match(app,/board comparables n=/);
+  assert.match(app,/Not launch validation/);
   assert.match(app,/p\.change_7d!=null&&p\.change_7d<=-20/);
   assert.match(app,/p\.change_7d==null/); // Missing change has its own bucket, never a fabricated series.
+  const html=readFileSync(resolve(root,'dashboard/index.html'),'utf8');
+  assert.match(html,/OFFICIAL SOURCE COVERAGE/);assert.match(html,/Search official 40/);
+  assert.match(app,/actual slug intersection/);assert.match(app,/WBTC is Bridge/);
+  assert.match(app,/Training-only 5-fold out-of-fold CV/);assert.match(app,/out-of-fold/);
+  assert.match(app,/project documentation and routes have not been checked/);
 });
 
 test('the vendor is the exact required kit library',()=>{

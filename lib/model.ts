@@ -3,7 +3,8 @@ export type Protocol = { slug:string; name:string; category:string|null; chains:
 export type Snapshot = { as_of:string; source:string; floor_usd:number; protocols:Protocol[]; watchlist:string[] };
 export type Row = Protocol & { rank:number; token_status:'unrecorded'; age_days:number|null; implied_value_usd:number; calibration_ratio:number; calibration_peer_count:number; calibration_scope:'category'|'all-token-recorded'; growth_multiplier:number; tenure_multiplier:number; farm_steps:string[]; valuation_note:string };
 export type ValidationMetrics={n:number;mae_log10:number;median_ape:number;within_2x:number};
-export type HeldOutValidation={split:string;holdout_fraction:number;train_count:number;holdout_count:number;train_slugs:string[];holdout_slugs:string[];strategy:ValidationMetrics;global_peer_median:ValidationMetrics;tvl_equals_market_cap:ValidationMetrics};
+export type TrainingValidation={split:string;folds:number;fit_count:number;validation_count:number;fold_validation_counts:number[];fold_fit_counts:number[];category_global:ValidationMetrics;global_peer_median:ValidationMetrics;tvl_equals_market_cap:ValidationMetrics};
+export type HeldOutValidation={split:string;holdout_fraction:number;train_count:number;holdout_count:number;train_slugs:string[];holdout_slugs:string[];strategy:ValidationMetrics;global_peer_median:ValidationMetrics;tvl_equals_market_cap:ValidationMetrics;training_cv:TrainingValidation};
 const VERSIONED = /\s(V\d+(\.\d+)?|v\d+(\.\d+)?|\d+\.\d+)$/;
 const DAY = 86_400_000;
 export function ageDays(asOf:string, listedAt:string|null):number|null {
@@ -35,6 +36,9 @@ function heldOut(slug:string):boolean {
   let h=2166136261;for(let i=0;i<slug.length;i++){h^=slug.charCodeAt(i);h=Math.imul(h,16777619);}
   return (h>>>0)%5===0;
 }
+function slugHash(slug:string):number {
+  let h=2166136261;for(let i=0;i<slug.length;i++){h^=slug.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;
+}
 function calibration(values:number[]):number {
   if(!values.length)throw new Error('Cannot value the radar: snapshot has no token-recorded market-cap/TVL comparables.');
   const sorted=[...values].sort((a,b)=>a-b), lo=quantile(sorted,0.1), hi=quantile(sorted,0.9);
@@ -57,7 +61,21 @@ export function validateHeldOut(snapshot:Snapshot):HeldOutValidation {
     const ratio=category.length>=5?calibration(category.map(t=>t.mcap_usd!/t.tvl_usd)):global;
     actual.push(p.mcap_usd!);strategy.push(p.tvl_usd*ratio);globalBase.push(p.tvl_usd*global);tvlBase.push(p.tvl_usd);
   }
-  return {split:'FNV-1a(slug) mod 5 = 0; assigned before fitting',holdout_fraction:0.2,train_count:train.length,holdout_count:holdout.length,train_slugs:train.map(p=>p.slug).sort(),holdout_slugs:holdout.map(p=>p.slug).sort(),strategy:metric(actual,strategy),global_peer_median:metric(actual,globalBase),tvl_equals_market_cap:metric(actual,tvlBase)};
+  // Select among peer methods using only the outer training set, with deterministic OOF folds.
+  const cvActual:number[]=[],cvCategory:number[]=[],cvGlobal:number[]=[],cvTvl:number[]=[],fold_validation_counts:number[]=[],fold_fit_counts:number[]=[];
+  for(let fold=0;fold<5;fold++){
+    const cvFit=train.filter(p=>slugHash(`cv:${p.slug}`)%5!==fold),cvCheck=train.filter(p=>slugHash(`cv:${p.slug}`)%5===fold);
+    if(!cvFit.length||!cvCheck.length)continue;
+    fold_validation_counts.push(cvCheck.length);fold_fit_counts.push(cvFit.length);
+    const cvGlobalRatio=calibration(cvFit.map(p=>p.mcap_usd!/p.tvl_usd));
+    for(const p of cvCheck){
+      const peersInCategory=cvFit.filter(t=>(t.category??'').toLowerCase()===(p.category??'').toLowerCase());
+      const categoryRatio=peersInCategory.length>=5?calibration(peersInCategory.map(t=>t.mcap_usd!/t.tvl_usd)):cvGlobalRatio;
+      cvActual.push(p.mcap_usd!);cvCategory.push(p.tvl_usd*categoryRatio);cvGlobal.push(p.tvl_usd*cvGlobalRatio);cvTvl.push(p.tvl_usd);
+    }
+  }
+  const training_cv:TrainingValidation={split:'Nested in outer train; FNV-1a("cv:" + slug) mod 5; each row predicted out of fold',folds:5,fit_count:train.length,validation_count:cvActual.length,fold_validation_counts,fold_fit_counts,category_global:metric(cvActual,cvCategory),global_peer_median:metric(cvActual,cvGlobal),tvl_equals_market_cap:metric(cvActual,cvTvl)};
+  return {split:'FNV-1a(slug) mod 5 = 0; assigned before fitting',holdout_fraction:0.2,train_count:train.length,holdout_count:holdout.length,train_slugs:train.map(p=>p.slug).sort(),holdout_slugs:holdout.map(p=>p.slug).sort(),strategy:metric(actual,strategy),global_peer_median:metric(actual,globalBase),tvl_equals_market_cap:metric(actual,tvlBase),training_cv};
 }
 function farmPlan(p:Protocol):string[] {
   const c=(p.category??'').toLowerCase();
@@ -78,13 +96,13 @@ function farmPlan(p:Protocol):string[] {
   : c.includes('otc') ? `Verify counterparty, settlement asset, escrow terms and dispute path from project-owned documents. Counterparty default and irreversible settlement are risks; avoid off-platform settlement.`
   : `Use project-owned docs to identify a real user action, prerequisites, reversibility and exit path. Contract, custody and exit risks are unknown; if no useful action is documented, keep this research-only.`;
   return [
-    `Confirm the project domain and chain from two official project-owned sources before connecting a wallet. Cost estimate: $0. Time estimate: 10–15 minutes.`,
-    `Create a dedicated wallet, write down its address, and keep the seed phrase offline; do not reuse a wallet holding long-term funds. Cost estimate: $0. Time estimate: 5–10 minutes.`,
-    `${activity} No deposit size is recommended. Minimums, gas, app fees and capital at risk: unknown until an actual route and asset are verified. Time estimate: 20–40 minutes to inspect a route; no action is required.`,
-    `If the verified app offers a useful repeat action and fees are acceptable, do it once on a later week and retain transaction links; avoid wash activity or self-trading. Cost estimate: unknown until the chain and transaction are known; do not assume a fee range from this snapshot. Time estimate: 5–15 minutes weekly.`,
-    `Use a 4-week review window as a planning cadence, not a token-timing signal; keep only a position you independently want and set a loss limit and exit rule. The snapshot tracking date is not time without a token. Opportunity cost: capital remains exposed; rewards and eligibility are unknown. Time estimate: 5 minutes to set rules, then a weekly check.`,
-    `Before withdrawing, check the project's official announcements and terms for any live points or incentive program; this snapshot does not establish one exists. Claim only through a verified official route. Cost estimate: $0 to check; claim gas is unknown. Time estimate: 10 minutes.`,
-    `Log dates, amounts, fees, action types and transaction links, then withdraw when your own exit rule is met. Cost estimate: $0 plus any unwind fee, which is unknown. Time estimate: 10–20 minutes.`,
+    `Evidence basis: snapshot source and date are shown above; category comes from that record. This generic plan has not checked project-owned documentation and does not claim a route, incentive, token, or relationship. Time estimate: 2–3 minutes. Cost estimate: unknown; the snapshot reports no research costs.`,
+    `Find the project's official documentation and verify the domain, chain, supported assets, and any app link against two project-owned pages before connecting a wallet. If they do not agree, stop at research. Time estimate: 10–20 minutes. Cost estimate: unknown; no route or fee data is in the snapshot.`,
+    `${activity} No deposit size is recommended. First record the documented prerequisites, withdrawal path, and failure conditions; if any are missing, do not transact. Time estimate: 20–40 minutes to review only. Cost estimate: minimums, gas, app fees, capital at risk, and transaction cost are unknown.`,
+    `Only if a verified route is documented and you independently choose to use it, check the exact network, asset, approvals, and final transaction details before signing; retain the transaction link. Skip if the amount at risk or exit path is unclear. Time estimate: 5–15 minutes for review and one action. Cost estimate: gas, fees, minimums, and capital at risk are unknown.`,
+    `Do not repeat activity for points or ranking. If official terms later document a repeat action, re-check the terms and fees before each later action; otherwise remain research-only. Time estimate: 5–15 minutes per review. Cost estimate: rewards, eligibility, repeat cadence, and costs are unknown.`,
+    `Check project-owned announcements and program terms for a currently documented incentive, eligibility, end date, and official claim route. The snapshot does not establish any program. Time estimate: 10–20 minutes. Cost estimate: claim gas and fees unknown; eligibility unknown.`,
+    `Keep a dated record of the source pages reviewed, any action, fees, transaction link, and your own exit rule. Re-check withdrawal conditions before acting; stop if the documented route changes. Time estimate: 10–20 minutes initially, then a chosen review cadence. Cost estimate: unwind cost and loss exposure are unknown.`,
   ];
 }
 export function buildBoard(snapshot:Snapshot):{rows:Row[]; calibration_ratio:number; calibration_peer_count:number; eligible_count:number;validation:HeldOutValidation} {
