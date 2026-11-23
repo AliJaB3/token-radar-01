@@ -12,6 +12,7 @@ The authentic kit snapshot is external and must not be copied into this reposito
 
 ```sh
 export RADAR_SNAPSHOT="${RADAR_SNAPSHOT:-/root/.hermes/cache/scratch/token-radar-work/token-radar-01-kit/input/snapshot.json}"
+npm ci
 node tests/model.test.ts
 node tests/output.test.ts
 node main.ts --input "$RADAR_SNAPSHOT" --output out --preview
@@ -19,7 +20,7 @@ node tests/capture.mjs
 node main.ts --input "$RADAR_SNAPSHOT" --output out
 ```
 
-Open `out/dashboard/index.html` directly from disk. No server or network is needed. The capture script uses an installed Playwright module. Set `PLAYWRIGHT_MODULE` if its path differs. It tests the generated page offline and replaces the three screenshots after browser assertions pass. The captures show the default board, a Steakhouse Financial detail with explicitly entered hypothetical inputs, and the official watchlist filtered to Lending. The script finishes with a full canonical build. `--preview` explicitly omits dossier generation; the normal build requires real screenshots and fails if they are missing.
+Open `out/dashboard/index.html` directly from disk. No server or network is needed. The development-only capture script uses Playwright 1.64.1, pinned in `package-lock.json`; install it with `npm ci`. It tests the generated page offline and replaces the three screenshots after browser assertions pass. The captures show the default board, a Steakhouse Financial detail with explicitly entered hypothetical inputs, and the official watchlist filtered to Lending. The script finishes with a full canonical build. `--preview` explicitly omits dossier generation; the normal build requires real screenshots and fails if they are missing.
 
 The scorer's default invocation reads `/input/snapshot.json` and writes `/output`; `--input`, `--output`, and `MAKEFUN_OUTPUT_DIR` support local use.
 

@@ -1,0 +1,11 @@
+{
+  "name": "token-radar-01",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:capture-loader": "node --test tests/capture-loader.test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

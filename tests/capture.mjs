@@ -5,13 +5,11 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { chromium } from 'playwright';
 
 const root=resolve(import.meta.dirname,'..');
 const temp=resolve(root,'.browser-tmp');
 mkdirSync(temp,{recursive:true});
-process.env.TMPDIR=temp;
-const modulePath=process.env.PLAYWRIGHT_MODULE??'/usr/local/lib/node_modules/playwright/index.mjs';
-const { chromium }=await import(modulePath);
 function build(preview=false){
   const r=spawnSync(process.execPath,['main.ts','--input',snapshotPath,'--output','out',...(preview?['--preview']:[])],{cwd:root,encoding:'utf8'});
   assert.equal(r.status,0,r.stderr);process.stdout.write(r.stdout);
